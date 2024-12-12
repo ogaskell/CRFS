@@ -1,13 +1,7 @@
 use std::result::Result;
+
 use crate::errors;
-
-use uuid::Uuid;
-use sha2::Sha256;
-
-// Provisional Type Definitions
-type ReplicaID = Uuid;
-type Hash = Sha256;
-type RawData = Vec<u8>;
+use crate::types::{ReplicaID, Hash, RawData};
 
 enum Type { Binary, Integer, Float, String }
 
