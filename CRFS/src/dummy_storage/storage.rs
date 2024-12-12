@@ -1,5 +1,3 @@
-use std::result::Result;
-
 use crate::errors;
 use crate::types::{ReplicaID, Hash, RawData};
 
