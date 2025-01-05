@@ -6,3 +6,7 @@ flake8
 flake8-annotations
 flake8-docstrings
 flake8-isort
+
+# Type Checking
+mypy
+django-stubs[compatible-mypy]
