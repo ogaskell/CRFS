@@ -1,0 +1,8 @@
+# Include all runtime requirements
+-r requirements.txt
+
+# Flake8 Linting
+flake8
+flake8-annotations
+flake8-docstrings
+flake8-isort
