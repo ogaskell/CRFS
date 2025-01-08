@@ -105,6 +105,7 @@ class JSONMessageHandler(GenericJSONView):
             user = User.objects.get(uuid=uuid.UUID(user_uuid))
 
             user.display_name = dispname
+            user.last_seen = datetime.datetime.now()
         except ObjectDoesNotExist:
             user = User(
                 uuid=uuid.UUID(user_uuid),
