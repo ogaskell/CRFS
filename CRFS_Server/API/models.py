@@ -25,6 +25,7 @@ class FileSystem(models.Model):
     user: models.Field = models.ForeignKey(User, on_delete=models.CASCADE, null=False, blank=False)
     display_name: models.Field = models.CharField(max_length=256, null=True)
     last_seen: models.Field = models.DateTimeField()
+    opts: models.Field = models.TextField(default="")
 
 
 class Replica(models.Model):
