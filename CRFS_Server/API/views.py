@@ -1,10 +1,15 @@
+import datetime
 import json
+import uuid
 from collections.abc import Callable
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+
+from .models import User
 
 
 class GenericJSONView(View):
@@ -47,6 +52,7 @@ class JSONMessageHandler(GenericJSONView):
         """Handler for JSON requests."""
         HANDLERS: dict[str, Callable[[dict, str], tuple[int, dict]]] = {
             "ping": self.ping_handler,
+            "register_user": self.register_user_handler,
         }
 
         try:
@@ -66,7 +72,7 @@ class JSONMessageHandler(GenericJSONView):
         try:
             id = request_data["transaction_id"]
         except KeyError:
-            return (400, {})
+            return (400, {"code": 8, "err_msg": "Missing mandatory field \"transaction_id\"."})
 
         return (200, {
             "version": "1.0",
@@ -74,5 +80,48 @@ class JSONMessageHandler(GenericJSONView):
             "reply": True,
             "type": "ping",
             "payload": {},
+            "notifications": [],
+        })
+
+    @staticmethod
+    def register_user_handler(request_data: dict, http_method: str) -> tuple[int, dict]:
+        """Handle `register_user`."""
+        try:
+            id = request_data["transaction_id"]
+        except KeyError:
+            return (400, {"code": 8, "err_msg": "Missing mandatory field \"transaction_id\"."})
+
+        if "user_uuid" in request_data.keys():
+            user_uuid = request_data["user_uuid"]
+        else:
+            return (400, {"code": 8, "err_msg": "Missing field \"user_uuid\" required by type \"register_user\"."})
+
+        if "display_name" in request_data.keys():
+            dispname = request_data["display_name"]
+        else:
+            dispname = None
+
+        try:
+            user = User.objects.get(uuid=uuid.UUID(user_uuid))
+
+            user.display_name = dispname
+        except ObjectDoesNotExist:
+            user = User(
+                uuid=uuid.UUID(user_uuid),
+                display_name=dispname,
+                last_seen=datetime.datetime.now()
+            )
+
+        user.save()
+
+        return (200, {
+            "version": "1.0",
+            "transaction_id": id,
+            "reply": True,
+            "type": "register_user",
+            "payload": {
+                "user_uuid": str(user.uuid),
+                "display_name": user.display_name,
+            },
             "notifications": [],
         })
