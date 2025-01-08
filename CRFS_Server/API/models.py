@@ -5,8 +5,14 @@ class User(models.Model):
     """A single user, identified by UUID."""
 
     uuid: models.Field = models.UUIDField(primary_key=True, editable=False)
-    display_name: models.Field = models.CharField(max_length=256)
+    display_name: models.Field = models.CharField(max_length=256, null=True)
     last_seen: models.Field = models.DateTimeField()
+
+    def __str__(self) -> str:
+        if self.display_name:
+            return f"User '{self.display_name}' Object"
+        else:
+            return "Unnamed User Object"
 
 
 class FileSystem(models.Model):
@@ -17,7 +23,7 @@ class FileSystem(models.Model):
 
     uuid: models.Field = models.UUIDField(primary_key=True, editable=False)
     user: models.Field = models.ForeignKey(User, on_delete=models.CASCADE, null=False, blank=False)
-    display_name: models.Field = models.CharField(max_length=256)
+    display_name: models.Field = models.CharField(max_length=256, null=True)
     last_seen: models.Field = models.DateTimeField()
 
 
