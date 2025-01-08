@@ -1,3 +1,7 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import FileSystem, Replica, User
+
+admin.site.register(FileSystem)
+admin.site.register(Replica)
+admin.site.register(User)
