@@ -91,13 +91,18 @@ class JSONMessageHandler(GenericJSONView):
         except KeyError:
             return (400, {"code": 8, "err_msg": "Missing mandatory field \"transaction_id\"."})
 
-        if "user_uuid" in request_data.keys():
-            user_uuid = request_data["user_uuid"]
+        try:
+            payload = request_data["payload"]
+        except KeyError:
+            return (400, {"code": 8, "err_msg": "Missing message payload."})
+
+        if "user_uuid" in payload.keys():
+            user_uuid = payload["user_uuid"]
         else:
             return (400, {"code": 8, "err_msg": "Missing field \"user_uuid\" required by type \"register_user\"."})
 
-        if "display_name" in request_data.keys():
-            dispname = request_data["display_name"]
+        if "display_name" in payload.keys():
+            dispname = payload["display_name"]
         else:
             dispname = None
 
