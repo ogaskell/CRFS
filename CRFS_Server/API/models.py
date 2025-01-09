@@ -27,6 +27,17 @@ class FileSystem(models.Model):
     last_seen: models.Field = models.DateTimeField()
     opts: models.Field = models.TextField(default="")
 
+    def __str__(self) -> str:
+        if self.user.display_name:
+            owner = "Unnamed User"
+        else:
+            owner = self.user.display_name
+
+        if self.display_name:
+            return f"FS {self.display_name}, of {owner}"
+        else:
+            return f"Unnamed FS, of {owner}"
+
 
 class Replica(models.Model):
     """Tracks a replica on a user's device.
