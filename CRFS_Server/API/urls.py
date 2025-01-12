@@ -4,5 +4,5 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('', views.JSONMessageHandler.as_view()),
+    path('', views.JSONMessageView.as_view()),
 ]
