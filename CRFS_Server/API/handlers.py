@@ -178,7 +178,41 @@ def register_filesystem_handler(message_type: str, payload: dict, http_method: s
     }
 
 
+def check_fs_handler(message_type: str, payload: dict, http_method: str) -> tuple[int, dict]:
+    """Handle `check_user` messages."""
+    if "user_uuid" in payload.keys():
+        user_uuid = payload["user_uuid"]
+    else:
+        return (400, {"code": 8, "err_msg": f"Missing field \"user_uuid\" required by type \"{message_type}\"."})
+
+    if "fs_uuid" in payload.keys():
+        fs_uuid = payload["fs_uuid"]
+    else:
+        return (400, {"code": 8, "err_msg": f"Missing field \"fs_uuid\" required by type \"{message_type}\"."})
+
+    try:
+        fs = FileSystem.objects.get(pk=uuid.UUID(fs_uuid))
+
+        if fs.user.uuid != uuid.UUID(user_uuid):
+            return 400, {
+                "code": 9,
+                "err_msg": "FileSystem with given UUID is owned by another user."
+            }
+
+        return 200, {
+            "user_uuid": str(fs.user.uuid),
+            "fs_uuid": str(fs.uuid),
+            "display_name": fs.display_name,
+            "fs_opts": fs.opts,
+        }
+    except ObjectDoesNotExist:
+        return 400, {
+            "code": 4
+        }
+
+
 PingHandler = JSONMessageHandler(ping_handler)
 RegisterUserHandler = JSONMessageHandler(register_user_handler)
 CheckUserHandler = JSONMessageHandler(check_user_handler)
 RegisterFSHandler = JSONMessageHandler(register_filesystem_handler)
+CheckFSHandler = JSONMessageHandler(check_fs_handler)
