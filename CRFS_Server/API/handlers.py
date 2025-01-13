@@ -1,10 +1,10 @@
 """API Message handlers."""
 
-import datetime
 import uuid
 from collections.abc import Callable
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 
 from .models import FileSystem, User
 
@@ -81,12 +81,12 @@ def register_user_handler(message_type: str, payload: dict, http_method: str) ->
         user = User.objects.get(uuid=uuid.UUID(user_uuid))
 
         user.display_name = dispname
-        user.last_seen = datetime.datetime.now()
+        user.last_seen = timezone.now()
     except ObjectDoesNotExist:
         user = User(
             uuid=uuid.UUID(user_uuid),
             display_name=dispname,
-            last_seen=datetime.datetime.now()
+            last_seen=timezone.now()
         )
 
     user.save()
@@ -106,7 +106,7 @@ def check_user_handler(message_type: str, payload: dict, http_method: str) -> tu
 
     try:
         user = User.objects.get(uuid=uuid.UUID(user_uuid))
-        user.last_seen = datetime.datetime.now()
+        user.last_seen = timezone.now()
 
         user.save()
 
@@ -159,13 +159,13 @@ def register_filesystem_handler(message_type: str, payload: dict, http_method: s
 
         fs.display_name = dispname
         fs.opts = fs_opts
-        fs.last_seen = datetime.datetime.now()
+        fs.last_seen = timezone.now()
     except ObjectDoesNotExist:
         fs = FileSystem(
             uuid=uuid.UUID(fs_uuid),
             user=user,
             display_name=dispname,
-            last_seen=datetime.datetime.now(),
+            last_seen=timezone.now(),
             opts=fs_opts,
         )
 
