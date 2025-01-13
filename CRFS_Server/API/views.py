@@ -5,8 +5,8 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from .handlers import (JSONMessageHandler, PingHandler, RegisterFSHandler,
-                       RegisterUserHandler)
+from .handlers import (CheckUserHandler, JSONMessageHandler, PingHandler,
+                       RegisterFSHandler, RegisterUserHandler)
 
 
 class GenericJSONView(View):
@@ -50,6 +50,7 @@ class JSONMessageView(GenericJSONView):
         HANDLERS: dict[str, JSONMessageHandler] = {
             "ping": PingHandler,
             "register_user": RegisterUserHandler,
+            "check_user": CheckUserHandler,
             "register_fs": RegisterFSHandler,
         }
 

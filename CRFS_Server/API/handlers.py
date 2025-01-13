@@ -97,6 +97,29 @@ def register_user_handler(message_type: str, payload: dict, http_method: str) ->
     }
 
 
+def check_user_handler(message_type: str, payload: dict, http_method: str) -> tuple[int, dict]:
+    """Handle `check_user` messages."""
+    if "user_uuid" in payload.keys():
+        user_uuid = payload["user_uuid"]
+    else:
+        return (400, {"code": 8, "err_msg": f"Missing field \"user_uuid\" required by type \"{message_type}\"."})
+
+    try:
+        user = User.objects.get(uuid=uuid.UUID(user_uuid))
+        user.last_seen = datetime.datetime.now()
+
+        user.save()
+
+        return 200, {
+            "user_uuid": str(user.uuid),
+            "display_name": user.display_name
+        }
+    except ObjectDoesNotExist:
+        return 400, {
+            "code": 3
+        }
+
+
 def register_filesystem_handler(message_type: str, payload: dict, http_method: str) -> tuple[int, dict]:
     """Handle `register_fs`."""
     if "user_uuid" in payload.keys():
@@ -157,4 +180,5 @@ def register_filesystem_handler(message_type: str, payload: dict, http_method: s
 
 PingHandler = JSONMessageHandler(ping_handler)
 RegisterUserHandler = JSONMessageHandler(register_user_handler)
+CheckUserHandler = JSONMessageHandler(check_user_handler)
 RegisterFSHandler = JSONMessageHandler(register_filesystem_handler)
