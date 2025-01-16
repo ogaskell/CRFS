@@ -33,4 +33,11 @@ pub fn check_user_test() {
     println!("Code {}, body:\n{}\n> end body", code, body.to_string());
 
     assert_eq!(code, 200u16);
+
+    let response = networking::res_body_to_response(body).unwrap();
+
+    assert_eq!(response.version, (1u32, 0u32, 0u32));
+    assert_eq!(response.transaction_id, 0i64);
+    assert_eq!(response.reply, true);
+    assert_eq!(response.message_type, "check_user");
 }
