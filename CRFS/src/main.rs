@@ -1,5 +1,5 @@
-mod dummy_storage;
-use crate::dummy_storage::storage;
+mod default_storage;
+use crate::default_storage::storage;
 
 mod default_networking;
 use crate::default_networking::networking;
