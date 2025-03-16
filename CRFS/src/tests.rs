@@ -30,7 +30,7 @@ pub fn check_user_test() {
 "#).unwrap();
 
     let (code, body) = networking::send_json_message(status, body).unwrap();
-    println!("Code {}, body:\n{}\n> end body", code, body.to_string());
+    // println!("Code {}, body:\n{}\n> end body", code, body.to_string());
 
     assert_eq!(code, 200u16);
 
@@ -40,4 +40,10 @@ pub fn check_user_test() {
     assert_eq!(response.transaction_id, 0i64);
     assert_eq!(response.reply, true);
     assert_eq!(response.message_type, "check_user");
+
+    println!(
+        "Payload:\n{}\n\nNotifications:\n{}\n",
+        json::stringify_pretty(response.payload, 2),
+        json::stringify_pretty(response.notifications, 2)
+    );
 }
