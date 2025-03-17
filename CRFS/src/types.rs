@@ -1,6 +1,7 @@
-use sha2::Sha256;
-use uuid::Uuid;
+// Provides useful type aliases.
 
-// Provisional Type Definitions
-pub type Hash = Sha256;
-pub type RawData = Vec<u8>;
+use generic_array::GenericArray;
+use generic_array::typenum::U32;
+
+pub type Sha256Hash = GenericArray<u8, U32>;
+pub type Hash = Sha256Hash;
