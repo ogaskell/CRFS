@@ -29,7 +29,12 @@ pub fn check_user_test() {
 
 "#).unwrap();
 
-    let (code, body) = networking::send_json_message(status, body).unwrap();
+    let (code, body) = match networking::send_json_message(status, body) {
+        Ok(v) => v,
+        Err(networking::Error::CRFSErr(code, msg)) => {panic!("CRFS Error: Code {}, Message:\n\t{}\n", code, msg);},
+        Err(networking::Error::JsonErr(e)) => {panic!("JSON Error: \n\t{:?}\n", e);},
+        Err(networking::Error::ReqwestErr(e)) => {panic!("Reqwest Error: \n\t{:?}\nDid you forget to start the server?\n", e);},
+    };
     // println!("Code {}, body:\n{}\n> end body", code, body.to_string());
 
     assert_eq!(code, 200u16);
