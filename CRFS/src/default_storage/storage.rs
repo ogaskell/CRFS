@@ -1,3 +1,4 @@
+use crate::helpers::ensure_dir;
 use crate::types::Hash;
 
 use std::fs::{File, create_dir_all};
@@ -186,23 +187,5 @@ impl<T: serde::ser::Serialize + serde::de::DeserializeOwned> MetaFile<T> {
         let object = serde_json::from_reader(reader).unwrap();
 
         Ok(object)
-    }
-}
-
-// HELPER FUNCTIONS
-pub fn ensure_dir(path: PathBuf) -> std::io::Result<bool> {
-    // Return Ok(true) if the directory existed, Ok(false) if we had to create it, Err(_) otherwise.
-    match path.try_exists() {
-        Ok(true) => {
-            if !path.is_dir() {Err(Error::new(ErrorKind::Other, "Path exists, but is file."))}
-            else {Ok(true)}
-        },
-        Ok(false) => {
-            match create_dir_all(path) {
-                Ok(()) => Ok(false),
-                Err(e) => Err(e),
-            }
-        },
-        Err(e) => Err(e),
     }
 }

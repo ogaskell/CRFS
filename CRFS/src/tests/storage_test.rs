@@ -1,4 +1,5 @@
 use crate::default_storage::storage;
+use crate::helpers::ensure_dir;
 use crate::types::Hash;
 
 use std::fs::{create_dir, remove_file, remove_dir};
@@ -43,7 +44,7 @@ pub fn test_read_write_ondisk() {
     let stat = storage::Status {
         working_dir: PathBuf::from(TESTFILEDIR),
     };
-    storage::ensure_dir(stat.working_dir.clone()).unwrap();
+    ensure_dir(stat.working_dir.clone()).unwrap();
 
     let mut path = PathBuf::new();
     path.push(TESTFILEDIR); path.push("ondisktest.txt");
@@ -72,7 +73,7 @@ pub fn test_read_ondisk_doesntexist() {
     let stat = storage::Status {
         working_dir: PathBuf::from(TESTFILEDIR),
     };
-    storage::ensure_dir(stat.working_dir.clone()).unwrap();
+    ensure_dir(stat.working_dir.clone()).unwrap();
 
     let mut path = stat.working_dir.clone(); path.push("notexist.txt");
 
@@ -143,28 +144,4 @@ pub fn test_read_write_meta() {
 
     // Check
     assert_eq!(data, result);
-}
-
-#[test]
-pub fn test_ensure_dir() {
-    // Handle AlreadyExists error (since this is somewhat expected), but still raise other errors
-    match create_dir(".testfiles") {
-        Ok(()) => Ok(()),
-        Err(ref e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(()),
-        Err(e) => Err(e),
-    }.unwrap();
-    let test_dir = PathBuf::from(".testfiles/testingdir");
-
-    // Handle NotFound error (since this is somewhat expected), but still raise other errors
-    match remove_dir(test_dir.clone()) {
-        Ok(()) => Ok(()),
-        Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(e) => Err(e),
-    }.unwrap();
-
-    // Test on non-existing dir
-    assert_eq!(storage::ensure_dir(test_dir.clone()).unwrap(), false);
-
-    // Test on existing dir
-    assert_eq!(storage::ensure_dir(test_dir.clone()).unwrap(), true);
 }

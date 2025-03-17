@@ -8,6 +8,7 @@ use crate::default_networking::networking;
 mod tests;
 
 mod errors;
+mod helpers;
 mod types;
 
 fn main() {
