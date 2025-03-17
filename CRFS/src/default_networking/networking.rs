@@ -41,6 +41,23 @@ pub struct Status {
     pub push_changes: bool,  // do we have changes the server doesn't?
 }
 
+impl Status {
+    pub fn empty() -> Self {
+        Status {
+            server: None,
+            info: ReplicaInfo {
+                id: None, disp_name: None, fs: FileSystemInfo {
+                    id: None, disp_name: None, user: UserInfo {
+                        id: None, disp_name: None,
+                    }
+                }
+            },
+            ready: false, data_ready: false,
+            pull_changes: false, push_changes: false,
+        }
+    }
+}
+
 pub struct Response {
     pub version: VersionNumber,
     pub transaction_id: i64,
