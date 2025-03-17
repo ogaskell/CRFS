@@ -5,6 +5,7 @@ use std::net;
 use json;
 use regex::Regex;
 use reqwest;
+use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
 type VersionNumber = (u32, u32, u32);
@@ -22,15 +23,22 @@ macro_rules! crfserror {
     ($code: expr, $msg: expr) => {Err(Error::CRFSErr($code, $msg))};
 }
 
-pub struct SystemStatus {
+#[derive(Serialize, Deserialize)]
+pub struct UserInfo {pub id: Option<Uuid>, pub disp_name: Option<String>}
+
+#[derive(Serialize, Deserialize)]
+pub struct FileSystemInfo {pub user: UserInfo, pub id: Option<Uuid>, pub disp_name: Option<String>}
+
+#[derive(Serialize, Deserialize)]
+pub struct ReplicaInfo {pub fs: FileSystemInfo, pub id: Option<Uuid>, pub disp_name: Option<String>}
+
+#[derive(Serialize, Deserialize)]
+pub struct Status {
     pub server: Option< net::SocketAddr >,
-    pub user: Option< Uuid >, pub user_dn: Option< String >,
-    pub filesystem: Option< Uuid >, pub filesystem_dn: Option< String >,
-    pub replica: Option< Uuid >,
+    pub info: ReplicaInfo,
     pub ready: bool, pub data_ready: bool,  // Is the local replica ready; if false, data_ready holds whether the server has the files ready
     pub pull_changes: bool,  // does the server have changes we don't?
     pub push_changes: bool,  // do we have changes the server doesn't?
-
 }
 
 pub struct Response {
@@ -42,7 +50,7 @@ pub struct Response {
     pub notifications: json::Array,
 }
 
-pub fn send_json_message(status: SystemStatus, body: json::JsonValue) -> Result<(u16, json::JsonValue)> {
+pub fn send_json_message(status: Status, body: json::JsonValue) -> Result<(u16, json::JsonValue)> {
     let host = status.server.unwrap();
 
     let body = json::stringify(body);
