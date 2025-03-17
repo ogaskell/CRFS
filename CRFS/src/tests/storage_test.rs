@@ -19,18 +19,31 @@ struct MetaTest {
 
 #[test]
 pub fn test_hash_to_path() {
+    // Setup
+    let stat = storage::Status {
+        working_dir: PathBuf::from(TESTFILEDIR),
+    };
+
     let hash = hex!("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
     let location = storage::ObjectLocation::ObjectStore(GenericArray::from(hash));
 
-    let path = PathBuf::from(".crfs/objects/b9/4d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9/");
+    // Manually calculate path
+    let mut act_path = PathBuf::from(TESTFILEDIR);
+    act_path.push(".crfs/objects/b9/4d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9/");
 
-    assert_eq!(path, location.get_path().unwrap());
+    // Use `get_path` (which calls `hash_to_path`)
+    let test_path = location.get_path(&stat).unwrap();
+
+    assert_eq!(act_path, test_path);
 }
 
 #[test]
 pub fn test_read_write_ondisk() {
     // Setup
-    storage::ensure_dir(PathBuf::from(TESTFILEDIR)).unwrap();
+    let stat = storage::Status {
+        working_dir: PathBuf::from(TESTFILEDIR),
+    };
+    storage::ensure_dir(stat.working_dir.clone()).unwrap();
 
     let mut path = PathBuf::new();
     path.push(TESTFILEDIR); path.push("ondisktest.txt");
@@ -44,7 +57,7 @@ pub fn test_read_write_ondisk() {
     println!("Wrote {written_bytes}B");
 
     // Read Data
-    f = storage::ObjectFile::open(loc.clone()).unwrap();
+    f = storage::ObjectFile::open(&stat, loc.clone()).unwrap();
     let mut read_buf = [0u8; 12];
     let read_bytes = f.read(&mut read_buf).unwrap();
     println!("Read {read_bytes}B");
@@ -56,8 +69,12 @@ pub fn test_read_write_ondisk() {
 #[test]
 pub fn test_read_ondisk_doesntexist() {
     // Setup
-    storage::ensure_dir(PathBuf::from(TESTFILEDIR)).unwrap();
-    let mut path = PathBuf::new(); path.push(TESTFILEDIR); path.push("notexist.txt");
+    let stat = storage::Status {
+        working_dir: PathBuf::from(TESTFILEDIR),
+    };
+    storage::ensure_dir(stat.working_dir.clone()).unwrap();
+
+    let mut path = stat.working_dir.clone(); path.push("notexist.txt");
 
     match remove_file(path.clone()) {
         Ok(()) => Ok(()),
@@ -67,7 +84,7 @@ pub fn test_read_ondisk_doesntexist() {
 
     // Try to open file
     let loc = storage::ObjectLocation::OnDisk(path.clone());
-    let f = storage::ObjectFile::open(loc);
+    let f = storage::ObjectFile::open(&stat, loc);
     match f {
         Ok(_) => panic!(),
         Err(_) => {},
@@ -76,15 +93,20 @@ pub fn test_read_ondisk_doesntexist() {
 
 #[test]
 pub fn test_read_write_object() {
+    // Setup
+    let stat = storage::Status {
+        working_dir: PathBuf::from(TESTFILEDIR),
+    };
+
     // Write Data
     let write_buf = b"test data!\n";
     let (hash, written_bytes) =
-        storage::ObjectFile::create_object(write_buf).unwrap();
+        storage::ObjectFile::create_object(&stat, write_buf).unwrap();
     println!("Wrote {written_bytes}B to object {:x}", hash);
 
     // Read Data
     let loc = storage::ObjectLocation::ObjectStore(hash);
-    let mut f = storage::ObjectFile::open(loc.clone()).unwrap();
+    let mut f = storage::ObjectFile::open(&stat, loc.clone()).unwrap();
     let mut read_buf = [0u8; 12];
     let read_bytes = f.read(&mut read_buf).unwrap();
     println!("Read {read_bytes}B");
@@ -94,9 +116,14 @@ pub fn test_read_write_object() {
 
 #[test]
 pub fn test_read_write_meta() {
+    // Setup
+    let stat = storage::Status {
+        working_dir: PathBuf::from(TESTFILEDIR),
+    };
+
     // Open File
     let id = uuid::Uuid::from_bytes([0u8; 16]);
-    let mut f = storage::MetaFile::<MetaTest>::create(id).unwrap();
+    let mut f = storage::MetaFile::<MetaTest>::create(&stat, id).unwrap();
 
     // Create Data
     let mut hasher = Sha256::new();
@@ -111,7 +138,7 @@ pub fn test_read_write_meta() {
     println!("Wrote {written_bytes}B");
 
     // Read
-    f = storage::MetaFile::<MetaTest>::open(id).unwrap();
+    f = storage::MetaFile::<MetaTest>::open(&stat, id).unwrap();
     let result = f.read().unwrap();
 
     // Check
