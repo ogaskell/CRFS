@@ -4,9 +4,8 @@ use std::net;
 
 use json;
 use regex::Regex;
-use uuid::Uuid;
-
 use reqwest;
+use uuid::Uuid;
 
 type VersionNumber = (u32, u32, u32);
 
