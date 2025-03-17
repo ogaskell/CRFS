@@ -1,3 +1,5 @@
+use crate::errors;
+
 use std::net;
 
 use json;
@@ -7,6 +9,19 @@ use uuid::Uuid;
 use reqwest;
 
 type VersionNumber = (u32, u32, u32);
+
+#[derive(Debug)]
+pub enum Error {
+    CRFSErr(errors::ErrorCode, String),
+    ReqwestErr(reqwest::Error),
+    JsonErr(json::Error),
+}
+
+type Result<T> = std::result::Result<T, Error>;
+
+macro_rules! crfserror {
+    ($code: expr, $msg: expr) => {Err(Error::CRFSErr($code, $msg))};
+}
 
 pub struct SystemStatus {
     pub server: Option< net::SocketAddr >,
@@ -28,32 +43,44 @@ pub struct Response {
     pub notifications: json::Array,
 }
 
-pub fn send_json_message(status: SystemStatus, body: json::JsonValue) -> Result<(u16, json::JsonValue), ()> {
+pub fn send_json_message(status: SystemStatus, body: json::JsonValue) -> Result<(u16, json::JsonValue)> {
     let host = status.server.unwrap();
 
     let body = json::stringify(body);
 
     let client = reqwest::blocking::Client::new();
-    let res = client.post(String::from("http://") + &host.to_string() + "/api/")
+    let res = match client.post(String::from("http://") + &host.to_string() + "/api/")
         .body(body)
-        .send()
-        .unwrap();
+        .send() {
+            Ok(r) => r,
+            Err(e) => return Err(Error::ReqwestErr(e)),
+        };
 
     let status = res.status().as_u16();
-    let res_body = json::parse(res.text().unwrap().as_str()).unwrap();
+    let res_body = match json::parse(res.text().unwrap().as_str()) {
+        Ok(j) => j,
+        Err(e) => return Err(Error::JsonErr(e)),
+    };
 
     return Ok((status, res_body));
 }
 
-pub fn str_to_ver(version: String) -> Result<VersionNumber, ()> {
+pub fn str_to_ver(version: String) -> Result<VersionNumber> {
+    let malformed: Result<VersionNumber> = crfserror!(errors::CODE_MALFORMED, format!("Version String {version} malformed."));
+
     let re = Regex::new(r"(\d+)\.(\d+)(?:\.(\d+))?").unwrap();
-    let Some(cap) = re.captures(&version) else {return Err(());};
+    let Some(cap) = re.captures(&version) else {
+        return malformed;
+    };
 
     let ver: VersionNumber = (
-        cap[1].parse().unwrap(),
-        cap[2].parse().unwrap(),
+        match cap[1].parse() {Ok(v) => v, Err(_) => return malformed},
+        match cap[2].parse() {Ok(v) => v, Err(_) => return malformed},
         match cap.get(3) {
-            Some(m) => m.as_str().parse().unwrap(),
+            Some(m) => match m.as_str().parse() {
+                Ok(v) => v,
+                Err(_) => return malformed,
+            },
             None => 0u32,
         },
     );
@@ -61,18 +88,26 @@ pub fn str_to_ver(version: String) -> Result<VersionNumber, ()> {
     return Ok(ver);
 }
 
-pub fn res_body_to_response(res_body: json::JsonValue) -> Result<Response, ()> {
-    let ver = str_to_ver(String::from(res_body["version"].as_str().unwrap())).unwrap();
-    let tid = res_body["transaction_id"].as_str().unwrap().parse().unwrap();
-    let reply = res_body["reply"].as_bool().unwrap();
-    let message_type = String::from(res_body["message_type"].as_str().unwrap());
+pub fn res_body_to_response(res_body: json::JsonValue) -> Result<Response> {
+    let malformed: Result<Response> = crfserror!(errors::CODE_MALFORMED, format!("Reponse malformed."));
+
+    let ver = str_to_ver(
+        String::from(res_body["version"].as_str().unwrap())
+    )?;
+    let Ok(tid) = res_body["transaction_id"].as_str().unwrap().parse() else {return malformed};
+    let Some(reply) = res_body["reply"].as_bool() else {return malformed};
+
+    let message_type = match res_body["message_type"].as_str() {
+        Some(v) => String::from(v),
+        None => return malformed,
+    };
     let payload = match res_body["payload"].clone() {
         json::JsonValue::Object(o) => o,
-        _ => panic!(),
+        _ => return malformed,
     };
     let notifications = match res_body["notifications"].clone() {
         json::JsonValue::Array(a) => a,
-        _ => panic!(),
+        _ => return malformed,
     };
 
     return Ok(Response{

@@ -8,3 +8,5 @@ pub const CODE_NO_FS: ErrorCode = 4;
 pub const CODE_WAITING: ErrorCode = 5;
 pub const CODE_NOT_FOUND: ErrorCode = 6;
 pub const CODE_NOT_IMPL: ErrorCode = 7;
+pub const CODE_MALFORMED: ErrorCode = 8;
+pub const CODE_AUTH_ERR: ErrorCode = 9;
