@@ -1,6 +1,3 @@
-use crate::errors;
-use crate::types::{Hash, RawData};
-
 use std::net;
 
 use json;
