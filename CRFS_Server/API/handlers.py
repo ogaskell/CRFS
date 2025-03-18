@@ -8,6 +8,8 @@ from django.utils import timezone
 
 from .models import FileSystem, User
 
+VERSION = "0.0.1"
+
 
 class JSONMessageHandler:
     """Handler class fr all message-based requests.
@@ -51,7 +53,7 @@ class JSONMessageHandler:
             http_code, reply_payload = self.handler(message_type, payload, http_method)
 
         return http_code, {
-            "version": "1.0",
+            "version": VERSION,
             "transaction_id": id,
             "reply": True,
             "message_type": message_type,
@@ -92,6 +94,7 @@ def register_user_handler(message_type: str, payload: dict, http_method: str) ->
     user.save()
 
     return 200, {
+        "code": 0,
         "user_uuid": str(user.uuid),
         "display_name": user.display_name,
     }
@@ -111,6 +114,7 @@ def check_user_handler(message_type: str, payload: dict, http_method: str) -> tu
         user.save()
 
         return 200, {
+            "code": 0,
             "user_uuid": str(user.uuid),
             "display_name": user.display_name
         }
@@ -172,6 +176,7 @@ def register_filesystem_handler(message_type: str, payload: dict, http_method: s
     fs.save()
 
     return 200, {
+        "code": 0,
         "user_uuid": str(user.uuid),
         "fs_uuid": str(fs.uuid),
         "display_name": fs.display_name,
@@ -200,6 +205,7 @@ def check_fs_handler(message_type: str, payload: dict, http_method: str) -> tupl
             }
 
         return 200, {
+            "code": 0,
             "user_uuid": str(fs.user.uuid),
             "fs_uuid": str(fs.uuid),
             "display_name": fs.display_name,
