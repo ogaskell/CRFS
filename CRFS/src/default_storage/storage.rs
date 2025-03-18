@@ -176,6 +176,13 @@ impl<T: serde::ser::Serialize + serde::de::DeserializeOwned> MetaFile<T> {
         })
     }
 
+    pub fn create_at_path(stat: &Status, path: PathBuf) -> std::io::Result<MetaFile<T>> {
+        let f = File::create(path.clone())?;
+        Ok(MetaFile::<T> {
+            file: f, id: None, path: path.clone(), data_type: PhantomData,
+        })
+    }
+
     pub fn write(&mut self, object: &T) -> std::io::Result<usize> {
         let raw_json = serde_json::to_string(object).unwrap();
         let buf: &[u8] = raw_json.as_bytes();
