@@ -9,9 +9,9 @@ use uuid::{uuid, Uuid};
 pub fn check_user_test() {
     let socket = SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8000);
 
-    let mut status = networking::Status::empty();
-    status.server = Some(std::net::SocketAddr::V4(socket));
-    status.info.fs.user.id = Some(uuid!("ad0ff637-87a8-4c64-a1a0-2ed08ec15e66"));
+    let mut config = networking::Config::empty();
+    config.server = Some(std::net::SocketAddr::V4(socket));
+    config.info.fs.user.id = Some(uuid!("ad0ff637-87a8-4c64-a1a0-2ed08ec15e66"));
 
 //     let body = json::parse(r#"
 
@@ -33,7 +33,7 @@ pub fn check_user_test() {
 //     };
 //     // println!("Code {}, body:\n{}\n> end body", code, body.to_string());
 
-    let response = networking::check_user(status).unwrap();
+    let response = networking::check_user(config).unwrap();
 
     assert_eq!(response.version, networking::VERSION);
     assert_eq!(response.reply, true);
@@ -50,8 +50,8 @@ pub fn check_user_test() {
 pub fn test_ping() {
     let socket = SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8000);
 
-    let mut status = networking::Status::empty();
-    status.server = Some(std::net::SocketAddr::V4(socket));
+    let mut config = networking::Config::empty();
+    config.server = Some(std::net::SocketAddr::V4(socket));
 
-    networking::ping_server(status).unwrap();
+    networking::ping_server(config).unwrap();
 }
