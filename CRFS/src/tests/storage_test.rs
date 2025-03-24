@@ -21,7 +21,7 @@ struct MetaTest {
 #[test]
 pub fn test_hash_to_path() {
     // Setup
-    let stat = storage::Status {
+    let stat = storage::Config {
         working_dir: PathBuf::from(TESTFILEDIR),
     };
 
@@ -41,7 +41,7 @@ pub fn test_hash_to_path() {
 #[test]
 pub fn test_read_write_ondisk() {
     // Setup
-    let stat = storage::Status {
+    let stat = storage::Config {
         working_dir: PathBuf::from(TESTFILEDIR),
     };
     ensure_dir(stat.working_dir.clone()).unwrap();
@@ -70,7 +70,7 @@ pub fn test_read_write_ondisk() {
 #[test]
 pub fn test_read_ondisk_doesntexist() {
     // Setup
-    let stat = storage::Status {
+    let stat = storage::Config {
         working_dir: PathBuf::from(TESTFILEDIR),
     };
     ensure_dir(stat.working_dir.clone()).unwrap();
@@ -95,7 +95,7 @@ pub fn test_read_ondisk_doesntexist() {
 #[test]
 pub fn test_read_write_object() {
     // Setup
-    let stat = storage::Status {
+    let stat = storage::Config {
         working_dir: PathBuf::from(TESTFILEDIR),
     };
 
@@ -118,7 +118,7 @@ pub fn test_read_write_object() {
 #[test]
 pub fn test_read_write_meta() {
     // Setup
-    let stat = storage::Status {
+    let stat = storage::Config {
         working_dir: PathBuf::from(TESTFILEDIR),
     };
 

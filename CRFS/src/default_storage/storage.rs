@@ -12,13 +12,21 @@ use serde_json;
 use sha2::{Sha256, Digest};
 use uuid::Uuid;
 
-const GLOBALCONF: &str = "~/.config/crfs/config.json";
+pub const GLOBALCONF: &str = ".config/crfs/config.json";
 const OBJECTDIR: &str = ".crfs/objects/";
 const METADIR: &str = ".crfs/meta/";
 
-#[derive(Serialize, Deserialize)]
-pub struct Status {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Config {
     pub working_dir: PathBuf,
+}
+
+impl Config {
+    pub fn clone(&self) -> Self {
+        Self {
+            working_dir: self.working_dir.clone(),
+        }
+    }
 }
 
 // OBJECT FILE HANDLING
@@ -29,7 +37,7 @@ pub enum ObjectLocation {
 }
 
 impl ObjectLocation {
-    pub fn get_path(&self, stat: &Status) -> std::io::Result<PathBuf> {
+    pub fn get_path(&self, stat: &Config) -> std::io::Result<PathBuf> {
         match self {
             ObjectLocation::OnDisk(p) =>
                 Ok(p.clone()),
@@ -38,7 +46,7 @@ impl ObjectLocation {
         }
     }
 
-    pub fn hash_to_path(stat: &Status, hash: Hash) -> std::io::Result<PathBuf> {
+    pub fn hash_to_path(stat: &Config, hash: Hash) -> std::io::Result<PathBuf> {
         let hex = format!("{:x}", hash);
 
         let mut path = PathBuf::new();
@@ -67,7 +75,7 @@ pub struct ObjectFile {
 }
 
 impl ObjectFile {
-    pub fn open(stat: &Status, loc: ObjectLocation) -> std::io::Result<ObjectFile> {
+    pub fn open(stat: &Config, loc: ObjectLocation) -> std::io::Result<ObjectFile> {
         let p = loc.get_path(stat)?;
 
         match p.try_exists() {
@@ -97,7 +105,7 @@ impl ObjectFile {
         })
     }
 
-    pub fn create_object(stat: &Status, buf: &[u8]) -> std::io::Result<(Hash, usize)> {
+    pub fn create_object(stat: &Config, buf: &[u8]) -> std::io::Result<(Hash, usize)> {
         // Compute hash
         let mut hasher = Sha256::new();
         hasher.update(buf);
@@ -137,14 +145,14 @@ pub struct MetaFile<T: serde::ser::Serialize + serde::de::DeserializeOwned> {
 }
 
 impl<T: serde::ser::Serialize + serde::de::DeserializeOwned> MetaFile<T> {
-    pub fn get_path_from_id(stat: &Status, id: Uuid) -> PathBuf {
+    pub fn get_path_from_id(config: &Config, id: Uuid) -> PathBuf {
         // Stringify UUID
         let mut encode_buf = Uuid::encode_buffer();
         let uuid_str = id.simple().encode_lower(&mut encode_buf);
 
         // Compute path
         let mut p = PathBuf::new();
-        p.push(stat.working_dir.clone());
+        p.push(config.working_dir.clone());
         p.push(METADIR);
         p.push(uuid_str);
         p.set_extension("json");
@@ -159,13 +167,13 @@ impl<T: serde::ser::Serialize + serde::de::DeserializeOwned> MetaFile<T> {
         })
     }
 
-    pub fn open(stat: &Status, id: Uuid) -> std::io::Result<MetaFile<T>> {
-        let p = MetaFile::<T>::get_path_from_id(stat, id);
+    pub fn open(config: &Config, id: Uuid) -> std::io::Result<MetaFile<T>> {
+        let p = MetaFile::<T>::get_path_from_id(config, id);
         MetaFile::<T>::open_path(p)
     }
 
-    pub fn create(stat: &Status, id: Uuid) -> std::io::Result<MetaFile<T>> {
-        let path: PathBuf = MetaFile::<T>::get_path_from_id(stat, id.clone());
+    pub fn create(config: &Config, id: Uuid) -> std::io::Result<MetaFile<T>> {
+        let path: PathBuf = MetaFile::<T>::get_path_from_id(config, id.clone());
 
         let parent = path.parent().unwrap();
         ensure_dir(PathBuf::from(parent))?;
@@ -176,7 +184,8 @@ impl<T: serde::ser::Serialize + serde::de::DeserializeOwned> MetaFile<T> {
         })
     }
 
-    pub fn create_at_path(stat: &Status, path: PathBuf) -> std::io::Result<MetaFile<T>> {
+    pub fn create_at_path(path: PathBuf) -> std::io::Result<MetaFile<T>> {
+        ensure_dir(PathBuf::from(path.parent().unwrap())).unwrap();
         let f = File::create(path.clone())?;
         Ok(MetaFile::<T> {
             file: f, id: None, path: path.clone(), data_type: PhantomData,

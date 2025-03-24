@@ -84,17 +84,14 @@ impl ReplicaInfo {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Status {
-    pub server: Option< net::SocketAddr >,
+pub struct Config {
+    pub server: Option<net::SocketAddr>,
     pub info: ReplicaInfo,
-    pub ready: bool, pub data_ready: bool,  // Is the local replica ready; if false, data_ready holds whether the server has the files ready
-    pub pull_changes: bool,  // does the server have changes we don't?
-    pub push_changes: bool,  // do we have changes the server doesn't?
 }
 
-impl Status {
+impl Config {
     pub fn empty() -> Self {
-        Status {
+        Self {
             server: None,
             info: ReplicaInfo {
                 id: None, disp_name: None, fs: FileSystemInfo {
@@ -103,6 +100,20 @@ impl Status {
                     }
                 }
             },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Status {
+    pub ready: bool, pub data_ready: bool,  // Is the local replica ready; if false, data_ready holds whether the server has the files ready
+    pub pull_changes: bool,  // does the server have changes we don't?
+    pub push_changes: bool,  // do we have changes the server doesn't?
+}
+
+impl Status {
+    pub fn empty() -> Self {
+        Status {
             ready: false, data_ready: false,
             pull_changes: false, push_changes: false,
         }
@@ -110,8 +121,6 @@ impl Status {
 
     pub fn clone(&self) -> Self {
         Status {
-            server: self.server.clone(),
-            info: self.info.clone(),
             ready: self.ready, data_ready: self.data_ready,
             pull_changes: self.pull_changes, push_changes: self.push_changes,
         }
@@ -153,8 +162,8 @@ pub struct Response {
     pub notifications: json::Array,
 }
 
-pub fn send_json_message(status: Status, body: JsonValue) -> Result<(u16, JsonValue)> {
-    let host = status.server.unwrap();
+pub fn send_json_message(config: Config, body: JsonValue) -> Result<(u16, JsonValue)> {
+    let host = config.server.unwrap();
 
     let body = json::stringify(body);
 
@@ -209,14 +218,14 @@ pub fn res_body_to_response(res_body: JsonValue) -> Result<Response> {
     })
 }
 
-pub fn ping_server(status: Status) -> Result<Response> {
+pub fn ping_server(config: Config) -> Result<Response> {
     let message = Message {
         transaction_id: None,
         message_type: String::from("ping"),
         payload: JsonValue::new_object(),
     }.to_json();
 
-    let (code, res_) = send_json_message(status, message)?;
+    let (code, res_) = send_json_message(config, message)?;
     let res = res_body_to_response(res_)?;
 
     if code == 200 {return Ok(res)} else {
@@ -224,7 +233,7 @@ pub fn ping_server(status: Status) -> Result<Response> {
     };
 }
 
-pub fn check_user(status: Status) -> Result<Response> {
+pub fn check_user(config: Config) -> Result<Response> {
     let mut message = Message {
         transaction_id: None,
         message_type: String::from("check_user"),
@@ -232,12 +241,12 @@ pub fn check_user(status: Status) -> Result<Response> {
     };
 
     let mut encode_buf = Uuid::encode_buffer();
-    let uuid_str = status.info.fs.user.id.clone().unwrap().simple().encode_lower(&mut encode_buf);
+    let uuid_str = config.info.fs.user.id.clone().unwrap().simple().encode_lower(&mut encode_buf);
 
     message.payload["user_uuid"] = JsonValue::from(String::from(uuid_str));
     let json_msg = message.to_json();
 
-    let (code, res_) = send_json_message(status, json_msg)?;
+    let (code, res_) = send_json_message(config, json_msg)?;
     let res = res_body_to_response(res_)?;
 
     let error_code = res.payload["code"].as_u32().unwrap();
@@ -246,7 +255,7 @@ pub fn check_user(status: Status) -> Result<Response> {
     else {return Ok(res)}
 }
 
-pub fn register_user(status: &mut Status) -> Result<Response> {
+pub fn register_user(config: &mut Config) -> Result<Response> {
     let mut message = Message {
         transaction_id: None,
         message_type: String::from("register_user"),
@@ -254,17 +263,17 @@ pub fn register_user(status: &mut Status) -> Result<Response> {
     };
 
     let mut encode_buf = Uuid::encode_buffer();
-    let uuid_str = status.info.fs.user.id.clone().unwrap().simple().encode_lower(&mut encode_buf);
+    let uuid_str = config.info.fs.user.id.clone().unwrap().simple().encode_lower(&mut encode_buf);
 
     message.payload["user_uuid"] = JsonValue::from(String::from(uuid_str));
-    match status.info.fs.user.disp_name.clone() {
+    match config.info.fs.user.disp_name.clone() {
         Some(n) => {message.payload["display_name"] = JsonValue::from(n);},
         None => {},
     }
 
     let json_msg = message.to_json();
 
-    let (code, res_) = send_json_message(status.clone(), json_msg)?;
+    let (code, res_) = send_json_message(config.clone(), json_msg)?;
     let res = res_body_to_response(res_)?;
 
     let error_code = res.payload["code"].as_u32().unwrap();
