@@ -6,6 +6,8 @@ mod default_networking;
 use crate::default_networking::networking;
 use crate::default_networking::networking::{UserInfo, FileSystemInfo, ReplicaInfo};
 
+mod conflict_res;
+
 #[cfg(test)]
 mod tests;
 
