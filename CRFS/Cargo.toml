@@ -8,6 +8,8 @@ generic-array = { version = "0.14.7", features = ["serde"] }
 hex-literal = "1.0.0"
 homedir = "0.3.4"
 json = "0.12.4"
+markdown-ast = "0.1.1"
+pulldown-cmark = "0.11.3"
 rand = { version = "0.9.0", features = ["serde"] }
 regex = "1.11.1"
 reqwest = { version = "0.12.12", features = ["blocking"] }
