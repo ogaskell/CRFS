@@ -75,8 +75,8 @@ pub struct ObjectFile {
 }
 
 impl ObjectFile {
-    pub fn open(stat: &Config, loc: ObjectLocation) -> std::io::Result<ObjectFile> {
-        let p = loc.get_path(stat)?;
+    pub fn open(config: &Config, loc: ObjectLocation) -> std::io::Result<ObjectFile> {
+        let p = loc.get_path(config)?;
 
         match p.try_exists() {
             Ok(true) => {
@@ -86,7 +86,7 @@ impl ObjectFile {
                     loc, path: p,
                 })
             },
-            Ok(false) => Err(Error::new(ErrorKind::NotFound, "Broken symlink.")),
+            Ok(false) => Err(Error::new(ErrorKind::NotFound, format!("Broken symlink in path {:#?}.", p))),
             Err(e) => Err(e),
         }
     }
@@ -105,7 +105,7 @@ impl ObjectFile {
         })
     }
 
-    pub fn create_object(stat: &Config, buf: &[u8]) -> std::io::Result<(Hash, usize)> {
+    pub fn create_object(stat: &Config, buf: &[u8]) -> std::io::Result<Hash> {
         // Compute hash
         let mut hasher = Sha256::new();
         hasher.update(buf);
@@ -120,20 +120,21 @@ impl ObjectFile {
 
         // Write data
         let mut f = ObjectFile::create_on_disk(path)?;
-        let bytes = f.write(buf);
+        f.write(buf)?;
 
-        return match bytes {
-            Ok(b) => Ok((hash, b)),
-            Err(e) => Err(e),
-        }
+        return Ok(hash);
     }
 
     pub fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.file.read(buf)
     }
 
-    pub fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.file.write(buf)
+    pub fn read_to_string(&mut self, buf: &mut String) -> std::io::Result<usize> {
+        self.file.read_to_string(buf)
+    }
+
+    pub fn write(&mut self, buf: &[u8]) -> std::io::Result<()> {
+        self.file.write_all(buf)
     }
 }
 
