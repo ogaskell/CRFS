@@ -2,4 +2,4 @@
 pub mod CmRDT;
 
 pub mod directed_graph;
-pub mod generic_doc;
+pub mod ast_doc;
