@@ -21,19 +21,19 @@ struct MetaTest {
 #[test]
 pub fn test_hash_to_path() {
     // Setup
-    let stat = storage::Config {
+    let config = storage::Config {
         working_dir: PathBuf::from(TESTFILEDIR),
     };
 
     let hash = hex!("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
-    let location = storage::ObjectLocation::ObjectStore(GenericArray::from(hash));
+    let location = storage::ObjectLocation::ObjectStore(config.clone(), Some(GenericArray::from(hash)));
 
     // Manually calculate path
     let mut act_path = PathBuf::from(TESTFILEDIR);
     act_path.push(".crfs/objects/b9/4d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9/");
 
     // Use `get_path` (which calls `hash_to_path`)
-    let test_path = location.get_path(&stat).unwrap();
+    let test_path = location.get_path();
 
     assert_eq!(act_path, test_path);
 }
@@ -51,16 +51,17 @@ pub fn test_read_write_ondisk() {
     let loc = storage::ObjectLocation::OnDisk(path.clone());
 
     // Write Data
-    let mut f = storage::ObjectFile::create_on_disk(path).unwrap();
     let write_buf = b"test data!\n";
 
-    f.write(write_buf).unwrap();
+    storage::ObjectFile::create(&loc, write_buf).unwrap();
 
     // Read Data
-    f = storage::ObjectFile::open(&stat, loc.clone()).unwrap();
-    let mut read_buf = [0u8; 12];
-    let read_bytes = f.read(&mut read_buf).unwrap();
+    let mut f = storage::ObjectFile::open(&loc).unwrap();
+    let mut read_buf = String::new();
+    let read_bytes = f.read_to_string(&mut read_buf).unwrap();
     println!("Read {read_bytes}B");
+
+    assert_eq!(String::from_utf8(Vec::from(write_buf)).unwrap(), read_buf);
 }
 
 #[test]
@@ -81,7 +82,7 @@ pub fn test_read_ondisk_doesntexist() {
 
     // Try to open file
     let loc = storage::ObjectLocation::OnDisk(path.clone());
-    let f = storage::ObjectFile::open(&stat, loc);
+    let f = storage::ObjectFile::open(&loc);
     match f {
         Ok(_) => panic!(),
         Err(_) => {},
@@ -91,21 +92,23 @@ pub fn test_read_ondisk_doesntexist() {
 #[test]
 pub fn test_read_write_object() {
     // Setup
-    let stat = storage::Config {
+    let config = storage::Config {
         working_dir: PathBuf::from(TESTFILEDIR),
     };
 
     // Write Data
     let write_buf = b"test data!\n";
-    let hash = storage::ObjectFile::create_object(&stat, write_buf).unwrap();
-    println!("Wrote to object {:x}", hash);
+    let mut loc = storage::ObjectLocation::ObjectStore(config.clone(), None);
+    storage::ObjectFile::create_mutloc(&mut loc, write_buf).unwrap();
+    println!("Wrote to object {:x}", loc.get_hash().unwrap());
 
     // Read Data
-    let loc = storage::ObjectLocation::ObjectStore(hash);
-    let mut f = storage::ObjectFile::open(&stat, loc.clone()).unwrap();
-    let mut read_buf = [0u8; 12];
-    let read_bytes = f.read(&mut read_buf).unwrap();
+    let mut f = storage::ObjectFile::open(&loc).unwrap();
+    let mut read_buf = String::new();
+    let read_bytes = f.read_to_string(&mut read_buf).unwrap();
     println!("Read {read_bytes}B");
+
+    assert_eq!(String::from_utf8(Vec::from(write_buf)).unwrap(), read_buf);
 }
 
 #[test]

@@ -32,38 +32,55 @@ impl Config {
 // OBJECT FILE HANDLING
 #[derive(Clone)]
 pub enum ObjectLocation {
-    ObjectStore(Hash),
+    ObjectStore(Config, Option<Hash>),
     OnDisk(PathBuf),
 }
 
 impl ObjectLocation {
-    pub fn get_path(&self, stat: &Config) -> std::io::Result<PathBuf> {
+    pub fn get_path(&self) -> PathBuf {
         match self {
             ObjectLocation::OnDisk(p) =>
-                Ok(p.clone()),
-            ObjectLocation::ObjectStore(h) =>
-                Ok(ObjectLocation::hash_to_path(stat, h.clone())?),
+                p.clone(),
+            ObjectLocation::ObjectStore(c, h) =>
+                ObjectLocation::hash_to_path(c, &(h.unwrap())),
         }
     }
 
-    pub fn hash_to_path(stat: &Config, hash: Hash) -> std::io::Result<PathBuf> {
+    pub fn get_hash(&self) -> Option<&Hash> {
+        match self {
+            ObjectLocation::OnDisk(..) => None,
+            ObjectLocation::ObjectStore(_, hash) => match hash {
+                Some(h) => Some(h),
+                None => None,
+            },
+        }
+    }
+
+    pub fn hash_to_path(config: &Config, hash: &Hash) -> PathBuf {
         let hex = format!("{:x}", hash);
 
         let mut path = PathBuf::new();
-        path.push(stat.working_dir.clone());
+        path.push(&config.working_dir);
         path.push(OBJECTDIR);
         path.push(&hex[0..2]);
         path.push(&hex[2..]);
 
-        return Ok(path);
+        return path;
     }
 
     fn clone(&self) -> Self {
         match self {
-            ObjectLocation::ObjectStore(h) =>
-                ObjectLocation::ObjectStore(h.clone()),
+            ObjectLocation::ObjectStore(c, h) =>
+                ObjectLocation::ObjectStore(c.clone(), h.clone()),
             ObjectLocation::OnDisk(p) =>
                 ObjectLocation::OnDisk(p.clone()),
+        }
+    }
+
+    pub fn extension(&self) -> Option<String> {
+        match self {
+            ObjectLocation::OnDisk(p) => Some(p.extension()?.to_owned().into_string().unwrap()),
+            ObjectLocation::ObjectStore(..) => None,
         }
     }
 }
@@ -71,19 +88,18 @@ impl ObjectLocation {
 pub struct ObjectFile {
     file: File,
     loc: ObjectLocation,
-    path: PathBuf,
 }
 
 impl ObjectFile {
-    pub fn open(config: &Config, loc: ObjectLocation) -> std::io::Result<ObjectFile> {
-        let p = loc.get_path(config)?;
+    pub fn open(loc: &ObjectLocation) -> std::io::Result<ObjectFile> {
+        let p = loc.get_path();
 
         match p.try_exists() {
             Ok(true) => {
                 let f = File::open(p.clone())?;
                 Ok(ObjectFile {
                     file: f,
-                    loc, path: p,
+                    loc: loc.clone(),
                 })
             },
             Ok(false) => Err(Error::new(ErrorKind::NotFound, format!("Broken symlink in path {:#?}.", p))),
@@ -91,36 +107,55 @@ impl ObjectFile {
         }
     }
 
-    pub fn create_on_disk(path: PathBuf) -> std::io::Result<ObjectFile> {
-        let loc = ObjectLocation::OnDisk(path.clone());
+    /// Create a file, writing the hash back to loc if loc is an ObjectStore.
+    pub fn create_mutloc(loc: &mut ObjectLocation, buf: &[u8]) -> std::io::Result<()> {
+        match loc {
+            ObjectLocation::ObjectStore(config, hash) => {
+                *hash = Some(Self::create_object(config, buf)?);
+                Ok(())
+            },
+            ObjectLocation::OnDisk(path) => Self::create_on_disk(path, buf)
+        }
+    }
+
+    /// Create a file, but don't write the hash back to loc.
+    pub fn create(loc: &ObjectLocation, buf: &[u8]) -> std::io::Result<()> {
+        match loc {
+            ObjectLocation::ObjectStore(config, _) => {
+                Self::create_object(config, buf)?; Ok(())
+            },
+            ObjectLocation::OnDisk(path) => Self::create_on_disk(path, buf)
+        }
+    }
+
+    pub fn create_on_disk(path: &PathBuf, buf: &[u8]) -> std::io::Result<()> {
         match path.parent() {
             Some(parent) => {ensure_dir(PathBuf::from(parent))?;},
             None => {},
         }
 
-        let f = File::create(path.clone())?;
-        Ok(ObjectFile {
-            file: f,
-            loc, path,
-        })
+        let mut f = File::create(path.clone())?;
+
+        return f.write_all(buf);
     }
 
-    pub fn create_object(stat: &Config, buf: &[u8]) -> std::io::Result<Hash> {
+    pub fn create_object(config: &Config, buf: &[u8]) -> std::io::Result<Hash> {
         // Compute hash
         let mut hasher = Sha256::new();
         hasher.update(buf);
         let hash: Hash = hasher.finalize();
 
         // Find location
-        let loc = ObjectLocation::ObjectStore(hash);
-        let path = loc.get_path(stat)?; let parent = path.parent().unwrap();
+        let path = ObjectLocation::hash_to_path(config, &hash);
 
         // Ensure directory exists
-        ensure_dir(PathBuf::from(parent)).unwrap();
+        match path.parent() {
+            Some(dir) => {ensure_dir(PathBuf::from(dir))?;},
+            None => {},
+        }
 
         // Write data
-        let mut f = ObjectFile::create_on_disk(path)?;
-        f.write(buf)?;
+        ObjectFile::create_on_disk(&path, buf)?;
 
         return Ok(hash);
     }
@@ -131,10 +166,6 @@ impl ObjectFile {
 
     pub fn read_to_string(&mut self, buf: &mut String) -> std::io::Result<usize> {
         self.file.read_to_string(buf)
-    }
-
-    pub fn write(&mut self, buf: &[u8]) -> std::io::Result<()> {
-        self.file.write_all(buf)
     }
 }
 
