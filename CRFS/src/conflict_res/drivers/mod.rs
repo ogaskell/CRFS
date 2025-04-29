@@ -1,3 +1,5 @@
+pub mod driver;
+
 #[allow(non_snake_case)]
 pub mod CmRDT;
 
