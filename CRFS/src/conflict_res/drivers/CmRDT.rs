@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Sha256, Digest};
+use uuid::Uuid;
 
 // k in the CmRDT paper
 // Used as a key for state history and causal history
@@ -20,7 +21,7 @@ const BUF_SIZE: usize = 1024;
 pub trait DiskType {
     fn new() -> Self;
 
-    fn read(config: &storage::Config, loc: &ObjectLocation) -> Result<Box<Self>, std::io::Error>;
+    fn read(loc: &ObjectLocation) -> Result<Box<Self>, std::io::Error>;
     fn write(&self, loc: &ObjectLocation) -> Result<(), std::io::Error>;
 
     fn from_state(state: &Self::StateFormat) -> Self;
@@ -65,7 +66,7 @@ pub trait Operation: Serialize + DeserializeOwned {
 // History Format
 pub type HistoryItem = Option<Hash>;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct History {
     data: Vec<HistoryItem>,
     pub k: K,
@@ -145,23 +146,23 @@ pub trait Object {
     // Otherwise, a single update as Some(op) will be returned.
     // Note that one call to this function may not be sufficient - it will calculate a single operation and prepare it,
     //   but it makes no guarantee that all the outstanding changes can be encoded in one operation.
-    fn prep(&self, data: &Self::DiskFormat) -> Option<Self::Op>;  // t
+    fn prep(&self, data: &Self::DiskFormat, replica_id: Uuid) -> Option<Self::Op>;  // t
 
     // Apply a single update.
     // This should be called immediately after `prep` if prep returned a Some value.
     // Should simply return the updated state if possible.
-    // Checks for the precondition - will return an Err if it is not applied.
-    fn apply(&mut self, op: &Self::Op) -> Result<Self::StateFormat, ()>;  // u
+    // Checks for the precondition - will return None if it is not applied.
+    fn apply(&mut self, op: &Self::Op) -> Option<Self::StateFormat>;  // u
 
     // Check if the preconditions of the operation are satisfied.
     // If this returns false, then the operation cannot yet be applied!
     // - This is not up to the driver to deal with.
     fn precond(&self, op: &Self::Op) -> bool;  // P
 
-    fn apply_op(&mut self, op: &Self::Op) -> Result<(), ()> {
+    fn apply_op(&mut self, op: &Self::Op) -> Option<()> {
         let new_state = self.apply(op)?;
         self.log_op(op.to_history(), new_state);
-        Ok(())
+        Some(())
     }
 
     fn log_op(&mut self, hist_obj: HistoryItem, new_state: Self::StateFormat) -> () {

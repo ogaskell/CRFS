@@ -10,6 +10,7 @@ use std::hash;
 use rand::Rng;
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
 use serde_json;
+use uuid::Uuid;
 
 type Tag = u64;
 
@@ -52,28 +53,19 @@ impl<T> CmRDT::DiskType for Graph<T> where T: Clone + Eq + hash::Hash + Serializ
         }
     }
 
-    fn read(config: &storage::Config, loc: &ObjectLocation) -> Result<Box<Self>, std::io::Error> {
-        let mut f = ObjectFile::open(config, loc.clone())?;
+    fn read(loc: &ObjectLocation) -> Result<Box<Self>, std::io::Error> {
+        let mut f = ObjectFile::open(&loc)?;
 
-        let mut buf = [0u8; BUF_SIZE];
-        f.read(&mut buf)?;
-        let json = String::from_utf8_lossy(&buf);
+        let mut buf = String::new();
+        f.read_to_string(&mut buf)?;
 
-        let obj = serde_json::from_str(&json)?;
+        let obj = serde_json::from_str(&buf)?;
         return Ok(Box::new(obj));
     }
 
-    fn write(&self, loc: &ObjectLocation) -> Result<(), std::io::Error> {
-        let mut f = if let storage::ObjectLocation::OnDisk(diskloc) = loc {
-            ObjectFile::create_on_disk(diskloc.clone())?
-        } else {
-            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "loc parameter must be an OnDisk."));
-        };
-
+    fn write(&self, loc: &storage::ObjectLocation) -> Result<(), std::io::Error> {
         let json = serde_json::to_string(self)?;
-        f.write(json.as_bytes());
-
-        Ok(())
+        return storage::ObjectFile::create(&loc, json.as_bytes());
     }
 
     type StateFormat = TaggedGraph<T>;
@@ -119,7 +111,7 @@ impl<T> CmRDT::Object for GraphObject<T> where T: Clone + Eq + hash::Hash + Seri
         return &self.state[&self.hist.k];
     }
 
-    fn prep(&self, data: &Self::DiskFormat) -> Option<Self::Op> {
+    fn prep(&self, data: &Self::DiskFormat, _: Uuid) -> Option<Self::Op> {
         let state = self.query_internal().clone();
         let untagged_state = self.query();
 
@@ -176,9 +168,9 @@ impl<T> CmRDT::Object for GraphObject<T> where T: Clone + Eq + hash::Hash + Seri
         return None;
     }
 
-    fn apply(&mut self, op: &Self::Op) -> Result<Self::StateFormat, ()> {
+    fn apply(&mut self, op: &Self::Op) -> Option<Self::StateFormat> {
         if !self.precond(op) {
-            return Err(());
+            return None;
         }
 
         let mut s = self.query_internal().clone();
@@ -198,7 +190,7 @@ impl<T> CmRDT::Object for GraphObject<T> where T: Clone + Eq + hash::Hash + Seri
             },
         };
 
-        return Ok(s);
+        return Some(s);
     }
 
     fn precond(&self, op: &Self::Op) -> bool {

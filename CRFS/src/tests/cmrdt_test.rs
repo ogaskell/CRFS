@@ -4,6 +4,8 @@ use directed_graph::{Graph, GraphObject, GraphOp};
 
 use std::collections::HashSet;
 
+use uuid::Uuid;
+
 #[test]
 fn directed_graph_test() -> () {
     let mut obj1: GraphObject<u8> = GraphObject::init();
@@ -21,7 +23,7 @@ fn directed_graph_test() -> () {
     };
 
     // Read graph1 into obj1
-    while let Some(op) = obj1.prep(&graph1) {
+    while let Some(op) = obj1.prep(&graph1, Uuid::from_u128(1)) {
         ops.push(op.clone());
         obj1.apply_op(&op).unwrap();
     };
@@ -29,7 +31,7 @@ fn directed_graph_test() -> () {
     dbg!(&obj1.query());
 
     // Read graph2 into obj2
-    while let Some(op) = obj2.prep(&graph2) {
+    while let Some(op) = obj2.prep(&graph2, Uuid::from_u128(2)) {
         ops.push(op.clone());
         obj2.apply_op(&op).unwrap();
     };
