@@ -1,10 +1,13 @@
 use super::CmRDT;
 // use crate::storage;
 
+use super::yata;
+
 use std::collections::HashMap;
-use rand::{distr::uniform::SampleBorrow, Rng};
+use rand::Rng;
 
 use serde::{Serialize, Deserialize, de::DeserializeOwned};
+use uuid::Uuid;
 
 // == Type Definitions ==
 pub type ID = u128;
@@ -20,25 +23,25 @@ pub fn unique() -> ID {
 /// This function is deterministic, unlike unique.
 /// Given there will be `n` items between `lower, upper`, get an ID for the `i`th.
 pub fn between(lower: ID, upper: ID, n: u128, i: u128) -> ID {
-    dbg!(lower, upper, n, i);
-    let space = upper - lower; dbg!(space);
-    let delta = space / (n + 1); dbg!(delta);
-    dbg!(lower + ((i + 1) * delta));
+    let space = upper - lower;
+    let delta = space / (n + 1);
     return lower + ((i + 1) * delta);
 }
 
 /// Container type for holding the set of Nodes in a document.
-type Container<TagType, LeafType> = HashMap<ID, Node<TagType, LeafType>>;
+pub type Container<TagType, LeafType> = HashMap<ID, Node<TagType, LeafType>>;
+
+pub type Children = yata::Array<ID, Uuid>;
 
 // == Data Structures ==
-/// A "reference" to a child node.
-/// (i.e. not a reference in the technical sense, but does refer to a particular child node)
-#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
-pub struct Child{i: ID, pub w: ID}
+// /// A "reference" to a child node.
+// /// (i.e. not a reference in the technical sense, but does refer to a particular child node)
+// #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
+// pub struct YATAChild{origin: ID, pub w: ID, deleted: bool}
 
-/// An ordered set of children. Designed to mask the underlying container.
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize, Hash)]
-pub struct Children{children: Vec<Child>}
+// /// An ordered set of children. Designed to mask the underlying container.
+// #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize, Hash)]
+// pub struct Children{children: Vec<YATAChild>}
 
 /// A single node in the tree-like document.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -70,44 +73,23 @@ pub trait TagLike {
     fn root() -> Self;
 }
 
-/// Used to interface between a CRDT object and files on disk.
-pub trait DiskInterface : CmRDT::DiskType<StateFormat = Doc<Self::TagType, Self::LeafType>> {
+/// Used to provide a single file on disk to a CRDT object.
+pub trait FileInterface : CmRDT::DiskType<StateFormat = Doc<Self::TagType, Self::LeafType>> {
     type TagType: TagLike + Clone + Serialize + DeserializeOwned + Eq + std::hash::Hash;
     type LeafType: Clone + Serialize + DeserializeOwned + Eq + std::hash::Hash;
 
-    fn generate(&self) -> Self::StateFormat;
-    fn generate_against(&self, doc: &Self::StateFormat) -> Self::StateFormat;
+    /// Generate a StateFormat (usually a Doc) from the DiskInterface
+    fn generate(&self, creator: Uuid) -> Self::StateFormat;
+
+    /// Similar to `generate`, but with IDs matching those from `against`.
+    fn generate_against(&self, against: &Self::StateFormat, creator: Uuid) -> Self::StateFormat;
 }
 
 // == Implementations ==
-impl Children {
-    pub fn new() -> Self {
-        Self { children: Vec::new() }
-    }
-
-    pub fn in_order(&self) -> Vec<Child> {
-        let mut vec: Vec<Child> = self.children.iter().map(|x|x.clone()).collect();
-        vec.sort();
-        return vec;
-    }
-
-    pub fn remove(&mut self, w: ID) {
-        self.children.retain(|child| child.w != w);
-    }
-
-    pub fn insert(&mut self, i: ID, w: ID) {
-        self.children.push(Child{i, w});
-    }
-
-    pub fn len(&self) -> usize {
-        self.children.len()
-    }
-}
-
-impl<TagType, LeafType> Node<TagType, LeafType> where TagType: Clone + TagLike, LeafType: Clone {
+impl<TagType, LeafType> Node<TagType, LeafType> where TagType: Clone + TagLike + Eq + std::fmt::Debug, LeafType: Clone + Eq {
     pub fn root() -> Self {
         Self::Parent {
-            id: 0, tag: TagType::root(), children: Children::new(),
+            id: 0, tag: TagType::root(), children: Children::empty(),
         }
     }
 
@@ -118,9 +100,16 @@ impl<TagType, LeafType> Node<TagType, LeafType> where TagType: Clone + TagLike, 
         }
     }
 
-    pub fn unwrap_parent(&self) -> (ID, &TagType, Vec<Child>) {
+    pub fn set_id(&mut self, w: ID) {
         match self {
-            Self::Parent{id, tag, children} => (*id, tag, children.in_order()),
+            Self::Leaf {id, content: _} => {*id = w},
+            Self::Parent {id, tag: _, children: _} => {*id = w},
+        }
+    }
+
+    pub fn unwrap_parent(&self) -> (ID, &TagType, Vec<ID>) {
+        match self {
+            Self::Parent{id, tag, children} => (*id, tag, children.in_order_content_undel()),
             Self::Leaf{..} => panic!(),
         }
     }
@@ -138,18 +127,44 @@ impl<TagType, LeafType> Node<TagType, LeafType> where TagType: Clone + TagLike, 
             Self::Leaf{..} => panic!(),
         }
     }
-}
 
-impl<TagType, LeafType> Doc<TagType, LeafType> where TagType: Clone + TagLike, LeafType: Clone {
-    pub fn new() -> Self {
-        let root = Node::root();
-        let mut doc = Self{
-            items: Container::new(), root: root.get_id(),
-        };
-        doc.items.insert(root.get_id(), root);
-        return doc;
+    pub fn get_children_owned(&self) -> Children {
+        match self {
+            Self::Parent{id: _, tag: _, children} => children.clone(),
+            Self::Leaf{..} => Children::empty(),
+        }
     }
 
+    /// Check if equal to `other`, ignoring the ID field.
+    pub fn eq_content(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::Parent {id: _, tag: t1, children: c1},
+                Self::Parent {id: _, tag: t2, children: c2}
+            ) => (t1 == t2), // && (c1.eq_content(c2)),
+            (
+                Self::Leaf {id: _, content: c1},
+                Self::Leaf {id: _, content: c2}
+            ) =>
+                c1 == c2,
+            _ => false,
+        }
+    }
+
+    pub fn rename(&mut self, w_old: ID, w_new: ID) {
+        if self.get_id() == w_old {self.set_id(w_new)}
+        match self {
+            Self::Leaf {..} => {},
+            Self::Parent {children , ..} => {
+                for id in children.in_order() {
+                    if children[id].content == w_old {children[id].content = w_new;}
+                }
+            }
+        }
+    }
+}
+
+impl<TagType, LeafType> Doc<TagType, LeafType> where TagType: Clone + TagLike + Eq + std::fmt::Debug, LeafType: Clone + Eq {
     pub fn get_root_children(&self) -> &Children {
         self.items.get(&self.root).unwrap().get_children()
     }
@@ -161,27 +176,93 @@ impl<TagType, LeafType> Doc<TagType, LeafType> where TagType: Clone + TagLike, L
     fn add_node(&mut self, node: &Node<TagType, LeafType>) {
         self.items.insert(node.get_id(), node.clone());
     }
-}
 
-impl<TagType, LeafType> CmRDT::StateType for Doc<TagType, LeafType> where TagType: Clone + TagLike, LeafType: Clone {
-    fn new() -> Self {
-        Self::new()
-    }
-}
-
-// == Trait Impls ==
-impl PartialOrd for Child {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        return Some(self.cmp(other));
-    }
-}
-
-impl Ord for Child {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self.i.cmp(&other.i) {
-            std::cmp::Ordering::Less => std::cmp::Ordering::Less,
-            std::cmp::Ordering::Greater =>  std::cmp::Ordering::Greater,
-            std::cmp::Ordering::Equal => self.w.cmp(&other.w),
+    pub fn rename_node(&mut self, w_old: ID, w_new: ID) {
+        for (_, n) in self.items.iter_mut() {
+            n.rename(w_old, w_new);
         }
+
+        if let Some(n) = self.items.remove(&w_old) {
+            self.items.insert(w_new, n);
+        }
+    }
+
+    /// Find a node in self matching the content of `node`, and whose ID is not in `exclude`, and return its ID.
+    pub fn match_node(&self, node: &Node<TagType, LeafType>, exclude: &Vec<ID>) -> Option<ID> {
+        let mut ids = self.bottom_up(); // Use bottom up to ensure nodes are in-order.
+
+        for id in self.items.keys() {
+            if !ids.contains(id) {ids.push(*id);}
+        }
+
+        ids.retain(
+            |id| self.items.get(id).unwrap().eq_content(node) && !exclude.contains(id)
+        );
+
+        return ids.into_iter().next();
+    }
+
+    /// Return all the IDs in the document tree, ordered bottom up and left-to-right.
+    /// That is:
+    /// - Any node with children is guaranteed to appear after its children.
+    /// - Any node before another in the document, is guaranteed to appear before the other in this list.
+    pub fn bottom_up(&self) -> Vec<ID> {
+        let mut result = Vec::<ID>::new();
+        let mut stack = Vec::<ID>::new();
+        stack.push(self.root);
+
+        'top: while !stack.is_empty() {
+            let node = stack[stack.len() - 1];
+            let children = self.items[&node].get_children_owned();
+
+            // Check if node has unvisited children
+            for c in children.in_order() {
+                if !result.contains(&children[c].content) {
+                    stack.push(children[c].content);
+                    continue 'top;
+                }
+            }
+
+            let top = stack.pop().unwrap();
+            result.push(top);
+        }
+        return result;
+    }
+
+    pub fn bottom_up_refs(&self) -> Vec<(ID, &Node<TagType, LeafType>)> {
+        let mut result = Vec::<ID>::new();
+        let mut stack = Vec::<ID>::new();
+        stack.push(self.root);
+
+        'top: while !stack.is_empty() {
+            let node = stack[stack.len() - 1];
+            let children = self.items[&node].get_children_owned();
+
+            // Check if node has unvisited children
+            for c in children.in_order() {
+                if !result.contains(&children[c].content) {
+                    stack.push(children[c].content);
+                    continue 'top;
+                }
+            }
+
+            let top = stack.pop().unwrap();
+            result.push(top);
+        }
+
+        return result.into_iter().map(
+            |id| (id, self.items.get(&id).unwrap())
+        ).collect();
+    }
+}
+
+impl<TagType, LeafType> CmRDT::StateType for Doc<TagType, LeafType> where TagType: Clone + TagLike + Eq + std::fmt::Debug, LeafType: Clone + Eq {
+    fn new() -> Self {
+        let root = Node::root();
+        let mut doc = Self{
+            items: Container::new(), root: root.get_id(),
+        };
+        doc.items.insert(root.get_id(), root);
+        return doc;
     }
 }
