@@ -1,5 +1,5 @@
 mod networking_test;
-mod storage_test;
+pub(crate) mod storage_test;
 mod cmrdt_test;
 
 mod ast_doc_test;
