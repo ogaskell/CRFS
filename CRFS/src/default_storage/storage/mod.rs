@@ -1,9 +1,9 @@
+use crate::conflict_res::drivers::CmRDT;
 use crate::helpers::ensure_dir;
 use crate::types::Hash;
 
 use std::fs::{File, create_dir_all};
 use std::io::{BufReader, Error, ErrorKind, Read, Write};
-use std::marker::PhantomData;
 use std::option::Option;
 use std::path::{Path, PathBuf};
 
@@ -12,9 +12,9 @@ use serde_json;
 use sha2::{Sha256, Digest};
 use uuid::Uuid;
 
-pub const GLOBALCONF: &str = ".config/crfs/config.json";
-const OBJECTDIR: &str = ".crfs/objects/";
-const METADIR: &str = ".crfs/meta/";
+pub const GLOBALCONF: &str = ".config/crfs/config.json"; // Appending to the user's home dir.
+const OBJECTDIR: &str = ".crfs/objects/"; // Appended to the working dir.
+const METADIR: &str = ".crfs/meta/"; // Appended to the working dir.
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
@@ -29,18 +29,27 @@ impl Config {
     }
 }
 
+pub mod object;
+pub mod meta;
+
 // OBJECT FILE HANDLING
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ObjectLocation {
     ObjectStore(Config, Option<Hash>),
-    OnDisk(PathBuf),
+    OnDisk(Config, PathBuf),
 }
 
 impl ObjectLocation {
     pub fn get_path(&self) -> PathBuf {
         match self {
-            ObjectLocation::OnDisk(p) =>
-                p.clone(),
+            ObjectLocation::OnDisk(c, p) => {
+                if p.is_relative() {
+                    let mut res = c.working_dir.clone(); res.push(p);
+                    res
+                } else {
+                    p.clone()
+                }
+            },
             ObjectLocation::ObjectStore(c, h) =>
                 ObjectLocation::hash_to_path(c, &(h.unwrap())),
         }
@@ -72,19 +81,20 @@ impl ObjectLocation {
         match self {
             ObjectLocation::ObjectStore(c, h) =>
                 ObjectLocation::ObjectStore(c.clone(), h.clone()),
-            ObjectLocation::OnDisk(p) =>
-                ObjectLocation::OnDisk(p.clone()),
+            ObjectLocation::OnDisk(c, p) =>
+                ObjectLocation::OnDisk(c.clone(), p.clone()),
         }
     }
 
     pub fn extension(&self) -> Option<String> {
         match self {
-            ObjectLocation::OnDisk(p) => Some(p.extension()?.to_owned().into_string().unwrap()),
+            ObjectLocation::OnDisk(_, p) => Some(p.extension()?.to_owned().into_string().unwrap()),
             ObjectLocation::ObjectStore(..) => None,
         }
     }
 }
 
+/*
 pub struct ObjectFile {
     file: File,
     loc: ObjectLocation,
@@ -114,7 +124,7 @@ impl ObjectFile {
                 *hash = Some(Self::create_object(config, buf)?);
                 Ok(())
             },
-            ObjectLocation::OnDisk(path) => Self::create_on_disk(path, buf)
+            ObjectLocation::OnDisk(config, path) => Self::create_on_disk(config, path, buf)
         }
     }
 
@@ -124,17 +134,23 @@ impl ObjectFile {
             ObjectLocation::ObjectStore(config, _) => {
                 Self::create_object(config, buf)?; Ok(())
             },
-            ObjectLocation::OnDisk(path) => Self::create_on_disk(path, buf)
+            ObjectLocation::OnDisk(config, path) => Self::create_on_disk(config, path, buf)
         }
     }
 
-    pub fn create_on_disk(path: &PathBuf, buf: &[u8]) -> std::io::Result<()> {
+    pub fn create_on_disk(config: &Config, _path: &PathBuf, buf: &[u8]) -> std::io::Result<()> {
+        let path = if _path.is_relative() {
+            let mut path = config.working_dir.clone(); path.push(_path); path
+        } else {
+            _path.clone()
+        };
+
         match path.parent() {
-            Some(parent) => {ensure_dir(PathBuf::from(parent))?;},
+            Some(parent) => {ensure_dir(config, &PathBuf::from(parent))?;},
             None => {},
         }
 
-        let mut f = File::create(path.clone())?;
+        let mut f = File::create(path)?;
 
         return f.write_all(buf);
     }
@@ -150,12 +166,30 @@ impl ObjectFile {
 
         // Ensure directory exists
         match path.parent() {
-            Some(dir) => {ensure_dir(PathBuf::from(dir))?;},
+            Some(dir) => {ensure_dir(config, &PathBuf::from(dir))?;},
             None => {},
         }
 
         // Write data
-        ObjectFile::create_on_disk(&path, buf)?;
+        ObjectFile::create_on_disk(config, &path, buf)?;
+
+        return Ok(hash);
+    }
+
+    pub fn create_op_object<T>(config: &Config, op: T) -> std::io::Result<Hash> where T: CmRDT::Operation {
+        let hash = op.get_hash();
+        let data = op.serialize_to_str()?;
+
+        // Find location
+        let path = ObjectLocation::hash_to_path(config, &hash);
+
+        // Ensure directory exists
+        match path.parent() {
+            Some(dir) => {ensure_dir(config, &PathBuf::from(dir))?;},
+            None => {},
+        }
+
+        ObjectFile::create_on_disk(config, &path, data.as_bytes())?;
 
         return Ok(hash);
     }
@@ -168,72 +202,4 @@ impl ObjectFile {
         self.file.read_to_string(buf)
     }
 }
-
-// METADATA FILE HANDLING
-pub struct MetaFile<T: serde::ser::Serialize + serde::de::DeserializeOwned> {
-    file: File,
-    id: Option<Uuid>, path: PathBuf,
-    data_type: PhantomData<T>,
-}
-
-impl<T: serde::ser::Serialize + serde::de::DeserializeOwned> MetaFile<T> {
-    pub fn get_path_from_id(config: &Config, id: Uuid) -> PathBuf {
-        // Stringify UUID
-        let mut encode_buf = Uuid::encode_buffer();
-        let uuid_str = id.simple().encode_lower(&mut encode_buf);
-
-        // Compute path
-        let mut p = PathBuf::new();
-        p.push(config.working_dir.clone());
-        p.push(METADIR);
-        p.push(uuid_str);
-        p.set_extension("json");
-
-        return p;
-    }
-
-    pub fn open_path(path: PathBuf) -> std::io::Result<MetaFile<T>> {
-        let f = File::open(path.clone())?;
-        Ok(MetaFile::<T>{
-            file: f, id: None, path: path.clone(), data_type: PhantomData,
-        })
-    }
-
-    pub fn open(config: &Config, id: Uuid) -> std::io::Result<MetaFile<T>> {
-        let p = MetaFile::<T>::get_path_from_id(config, id);
-        MetaFile::<T>::open_path(p)
-    }
-
-    pub fn create(config: &Config, id: Uuid) -> std::io::Result<MetaFile<T>> {
-        let path: PathBuf = MetaFile::<T>::get_path_from_id(config, id.clone());
-
-        let parent = path.parent().unwrap();
-        ensure_dir(PathBuf::from(parent))?;
-
-        let f = File::create(path.clone())?;
-        Ok(MetaFile::<T> {
-            file: f, id: Some(id.clone()), path: path.clone(), data_type: PhantomData,
-        })
-    }
-
-    pub fn create_at_path(path: PathBuf) -> std::io::Result<MetaFile<T>> {
-        ensure_dir(PathBuf::from(path.parent().unwrap())).unwrap();
-        let f = File::create(path.clone())?;
-        Ok(MetaFile::<T> {
-            file: f, id: None, path: path.clone(), data_type: PhantomData,
-        })
-    }
-
-    pub fn write(&mut self, object: &T) -> std::io::Result<usize> {
-        let raw_json = serde_json::to_string(object).unwrap();
-        let buf: &[u8] = raw_json.as_bytes();
-        self.file.write(buf)
-    }
-
-    pub fn read(&mut self) -> std::io::Result<T> {
-        let reader = BufReader::new(&self.file);
-        let object = serde_json::from_reader(reader).unwrap();
-
-        Ok(object)
-    }
-}
+*/
