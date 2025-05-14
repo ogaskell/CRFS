@@ -1,5 +1,4 @@
 use crate::default_storage::storage;
-use crate::helpers::ensure_dir;
 use crate::types::Hash;
 
 use std::fs::{create_dir, remove_file, remove_dir};

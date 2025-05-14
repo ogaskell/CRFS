@@ -1,5 +1,4 @@
 use crate::conflict_res::drivers::CmRDT;
-use crate::helpers::ensure_dir;
 use crate::types::Hash;
 
 use std::fs::{File, create_dir_all};
