@@ -1,10 +1,17 @@
-use super::types::{Doc, FileInterface, TagLike, Children, ID, unique, between, Node};
+use std::collections::HashSet;
+use std::path::PathBuf;
+
+use super::types::{Doc, FileInterface, TagLike, Children, ID, unique, Node};
 use super::crdt::DocObject;
 
 use super::CmRDT;
 use super::CmRDT::{StateType, DiskType, Object};
 use super::super::driver::Driver;
+use crate::conflict_res::drivers::file_tree::DriverID;
+use crate::conflict_res::drivers::CmRDT::Operation;
 use crate::storage;
+use storage::object;
+use crate::types::Hash;
 
 use markdown_ast as mdast;
 use markdown_ast::{CodeBlockKind as CodeBlockKind_, HeadingLevel};
@@ -142,7 +149,7 @@ pub enum MDTag {
 
 type MDDoc = Doc<MDTag, MDLeaf>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MDInterface {
     pub mdast: Vec<mdast::Block>,
 }
@@ -162,19 +169,18 @@ impl DiskType for MDInterface {
         }
     }
 
-    fn read(loc: &storage::ObjectLocation) -> Result<Box<Self>, std::io::Error> {
-        let mut file = storage::ObjectFile::open(loc)?;
+    fn read(config: &storage::Config, loc: &object::Location) -> Result<Box<Self>, std::io::Error> {
         let mut buf = String::new();
-        file.read_to_string(&mut buf)?;
+        object::read_string(config, loc, &mut buf)?;
 
         let mdast = mdast::markdown_to_ast(&buf);
 
         return Ok(Box::new(Self{mdast}));
     }
 
-    fn write(&self, loc: &storage::ObjectLocation) -> Result<(), std::io::Error> {
+    fn write(&self, config: &storage::Config, loc: &object::Location) -> Result<(), std::io::Error> {
         let raw_md = mdast::ast_to_markdown(&self.mdast);
-        return storage::ObjectFile::create(&loc, raw_md.as_bytes());
+        return object::write(config, loc, raw_md.as_bytes());
     }
 
     fn from_state(state: &Self::StateFormat) -> Self {
@@ -503,23 +509,42 @@ impl MDInterface {
 
 pub type MDObject = DocObject<MDInterface>;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MDDriver {
     object: MDObject,
-    loc: storage::ObjectLocation,
+    config: storage::Config,
+    loc: object::Location,
     uuid: Uuid,
+    driverid: DriverID,
 }
 
-impl Driver<MDObject> for MDDriver {
-    fn check(loc: &storage::ObjectLocation) -> bool {
+impl Driver for MDDriver {
+    type Object = MDObject;
+
+    fn check(loc: &object::Location) -> bool {
         loc.extension() == Some(String::from("md"))
     }
 
-    fn new(loc: &storage::ObjectLocation, uuid: Uuid) -> Self {
+    fn new(config: storage::Config, loc: &object::Location, uuid: Uuid, driverid: DriverID) -> Self {
         Self {
-            object: MDObject::init(),
+            object: MDObject::init(driverid),
+            config,
             loc: loc.clone(),
             uuid,
+            driverid,
         }
+    }
+
+    fn get_driverid(&self) -> DriverID {
+        return self.driverid;
+    }
+
+    fn get_config(&self) -> storage::Config {
+        self.config.clone()
+    }
+
+    fn set_config(&mut self, config: storage::Config) {
+        self.config = config;
     }
 
     fn get_history(&self) -> CmRDT::History {
@@ -527,11 +552,13 @@ impl Driver<MDObject> for MDDriver {
     }
 
     fn update(&mut self) -> Result<(), crate::errors::Error> {
-        let latest_state = *MDInterface::read(&self.loc)?;
+        let latest_state = *MDInterface::read(&self.config, &self.loc)?;
 
         while let Some(op) = self.object.prep(&latest_state, self.uuid) {
             self.object.apply_op(&op).unwrap(); // Use unwrap here, since there is no reason a just-prepped update doesn't apply.
             // If a just-prepped update doesn't apply, then something has gone very wrong!! We *must* always immediately `apply` after a `prep`.
+
+            self.write_op(op)?;
         }
 
         return Ok(());
@@ -539,30 +566,53 @@ impl Driver<MDObject> for MDDriver {
 
     /// Operations may have dependencies that do not align with their order in `ops`.
     /// As such, we iterate over `ops`, attempting to apply every operation, until they are all applied.
-    /// If in a single iteration, nothing applies, then stop and throw an error.
-    /// This error will include a hashset of the indices of the applied operations.
-    fn apply(&mut self, ops: Vec<&<DocObject<MDInterface> as CmRDT::Object>::Op>) -> Result<(), std::collections::HashSet<usize>> {
-        let mut applied = std::collections::HashSet::new();
+    /// If in a single iteration, nothing applies, we have reached a fixed point so stop.
+    /// Ok(_) will return a vector of any hashes which have not applied.
+    fn apply<'a>(&mut self, ops: &Vec<&'a Hash>) -> std::io::Result<HashSet<&'a Hash>> {
+        let mut applied = HashSet::new();
         let mut last_n_applied = 0usize;
 
-        while applied.len() < ops.len() {
-            for (i, op) in ops.iter().enumerate() {
+        let n_ops = ops.len();
+
+        while applied.len() < n_ops {
+            'inner: for hash in ops.iter() {
                 // If op hasn't been applied yet
-                if !applied.contains(&i) {
+                if !applied.contains(hash) {
+                    // Attempt to fetch op
+                    let op = match self.get_op(**hash) {
+                        Ok(op) => op,
+                        Err(_) => continue 'inner,
+                    };
+
+                    // Check op driverid
+                    if op.get_driverid() != self.get_driverid() {continue 'inner;}
+
                     // Attempt to apply op
-                    match self.object.apply_op(op) {
-                        Some(()) => {applied.insert(i);},
+                    match self.object.apply_op(&op) {
+                        Some(()) => {applied.insert(*hash);},
                         None => {},
                     }
                 }
             }
 
             if applied.len() <= last_n_applied {
-                return Err(applied);
+                return Ok(applied);
             }
             last_n_applied = applied.len();
         }
 
+        Ok(applied)
+    }
+
+    fn write_out(&self) -> std::io::Result<()> {
+        let internal_state = self.object.query().get_canon();
+
+        object::write(&self.config, &self.loc, internal_state.as_bytes())?;
+
         Ok(())
+    }
+
+    fn get_path(&self) -> PathBuf {
+        self.loc.get_path(&self.config)
     }
 }

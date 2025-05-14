@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::collections::HashSet;
 
+use crate::conflict_res::drivers::file_tree::DriverID;
 use crate::conflict_res::drivers::CmRDT::{DiskType, Object};
 use crate::conflict_res::drivers::ast_doc;
 use ast_doc::types::{Doc, Node, FileInterface, Children};
@@ -9,6 +10,7 @@ use ast_doc::md;
 use markdown_ast::ast_to_markdown;
 
 use crate::storage;
+use storage::object;
 
 use uuid::Uuid;
 
@@ -16,13 +18,15 @@ const TESTFILEDIR: &str = ".testfiles";
 
 #[test]
 fn read_test() {
-    let path = PathBuf::from(format!("{}/test.md", TESTFILEDIR));
-    let loc = storage::ObjectLocation::OnDisk(path.clone());
+    let config = storage::Config {working_dir: PathBuf::from(TESTFILEDIR),};
+    let path = PathBuf::from("test.md");
 
-    let raw_md = std::fs::read_to_string(path).unwrap();
+    let loc = object::Location::Path(path.clone(), true);
+
+    let raw_md = std::fs::read_to_string([&config.working_dir, &path].into_iter().collect::<PathBuf>()).unwrap();
     let canon = markdown_ast::canonicalize(&raw_md);
 
-    let int = *md::MDInterface::read(&loc).unwrap();
+    let int = *md::MDInterface::read(&config, &loc).unwrap();
 
     let doc = int.generate(Uuid::nil());
 
@@ -49,10 +53,12 @@ fn eq_content_test() {
 
 #[test]
 fn generate_against_test() {
-    let path = PathBuf::from(format!("{}/test.md", TESTFILEDIR));
-    let loc = storage::ObjectLocation::OnDisk(path.clone());
+    let config = storage::Config {working_dir: PathBuf::from(TESTFILEDIR),};
+    let path = PathBuf::from("test.md");
 
-    let int = *md::MDInterface::read(&loc).unwrap();
+    let loc = object::Location::Path(path.clone(), true);
+
+    let int = *md::MDInterface::read(&config, &loc).unwrap();
 
     let doc1 = int.generate(Uuid::from_u128(1));
     let doc2 = int.generate_against(&doc1, Uuid::from_u128(2));
@@ -76,20 +82,22 @@ fn generate_against_test() {
 
 #[test]
 fn md_merge_test() {
+    let config = storage::Config {working_dir: PathBuf::from(TESTFILEDIR),};
+
     let paths = [
-        PathBuf::from(format!("{}/test1.md", TESTFILEDIR)),
-        PathBuf::from(format!("{}/test2.md", TESTFILEDIR)),
-        PathBuf::from(format!("{}/test3.md", TESTFILEDIR)),
-        PathBuf::from(format!("{}/test4.md", TESTFILEDIR)),
+        PathBuf::from("test1.md"),
+        PathBuf::from("test3.md"),
+        PathBuf::from("test4.md"),
+        PathBuf::from("test2.md"),
     ];
     let locs: Vec<_> =
-        paths.iter().map(|path| storage::ObjectLocation::OnDisk(path.clone())).collect();
+        paths.iter().map(|path| object::Location::Path(path.clone(), true)).collect();
 
     let ints: Vec<_> =
-        locs.iter().map(|loc| *md::MDInterface::read(loc).unwrap()).collect();
+        locs.iter().map(|loc| *md::MDInterface::read(&config, loc).unwrap()).collect();
 
-    let mut object1 = md::MDObject::init(); let id1 = Uuid::from_u128(1);
-    let mut object2 = md::MDObject::init(); let id2 = Uuid::from_u128(2);
+    let mut object1 = md::MDObject::init(DriverID::Driver(0)); let id1 = Uuid::from_u128(1);
+    let mut object2 = md::MDObject::init(DriverID::Driver(1)); let id2 = Uuid::from_u128(2);
 
     println!("Initialised.");
 
