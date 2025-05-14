@@ -138,30 +138,3 @@ impl AvailDrivers {
         }
     }
 }
-
-// #[derive(Clone, Serialize, Deserialize, Debug)]
-// pub enum AvailOps {
-//     Markdown(ast_doc::crdt::DocOp<md::MDTag, md::MDLeaf>),
-//     FileOp(file_tree::FileOp),
-// }
-
-// impl From<ast_doc::crdt::DocOp<md::MDTag, md::MDLeaf>> for AvailOps {
-//     fn from(item: ast_doc::crdt::DocOp<md::MDTag, md::MDLeaf>) -> Self {
-//         Self::Markdown(item)
-//     }
-// }
-
-// impl Into<ast_doc::crdt::DocOp<md::MDTag, md::MDLeaf>> for AvailOps {
-//     fn into(self) -> ast_doc::crdt::DocOp<md::MDTag, md::MDLeaf> {
-//         match self {
-//             Self::Markdown(item) => item,
-//             _ => panic!(),
-//         }
-//     }
-// }
-
-// impl From<file_tree::FileOp> for AvailOps {
-//     fn from(item: file_tree::FileOp) -> Self {
-//         Self::FileOp(item)
-//     }
-// }
