@@ -1,7 +1,10 @@
 // Directed Graph CmRDT, adapted from https://pages.lip6.fr/Marc.Shapiro/papers/RR-7687.pdf#page=15
 
 use crate::storage;
-use crate::storage::{ObjectFile, ObjectLocation};
+// use crate::storage::{ObjectFile, ObjectLocation};
+use storage::object;
+
+use super::file_tree::DriverID;
 use super::CmRDT::{self, StateType, DiskType, Operation};
 
 use std::collections::HashSet;
@@ -53,19 +56,17 @@ impl<T> CmRDT::DiskType for Graph<T> where T: Clone + Eq + hash::Hash + Serializ
         }
     }
 
-    fn read(loc: &ObjectLocation) -> Result<Box<Self>, std::io::Error> {
-        let mut f = ObjectFile::open(&loc)?;
-
+    fn read(config: &storage::Config, loc: &object::Location) -> std::io::Result<Box<Self>> {
         let mut buf = String::new();
-        f.read_to_string(&mut buf)?;
+        object::read_string(config, loc, &mut buf)?;
 
         let obj = serde_json::from_str(&buf)?;
         return Ok(Box::new(obj));
     }
 
-    fn write(&self, loc: &storage::ObjectLocation) -> Result<(), std::io::Error> {
+    fn write(&self, config: &storage::Config, loc: &object::Location) -> std::io::Result<()> {
         let json = serde_json::to_string(self)?;
-        return storage::ObjectFile::create(&loc, json.as_bytes());
+        return object::write(config, loc, json.as_bytes());
     }
 
     type StateFormat = TaggedGraph<T>;
@@ -86,13 +87,16 @@ impl<T> CmRDT::StateType for TaggedGraph<T> where T: Clone {
     }
 }
 
-impl<T> CmRDT::Operation for GraphOp<T> where T: Clone + Eq + hash::Hash + Serialize + DeserializeOwned {}
+impl<T> CmRDT::Operation for GraphOp<T> where T: Clone + Eq + hash::Hash + Serialize + DeserializeOwned {
+    fn get_driverid(&self) -> DriverID {todo!();}
+}
 
 // == CmRDT Implementation ==
 #[derive(Debug)]
 pub struct GraphObject<T: Clone> {
     state: CmRDT::State<TaggedGraph<T>>,
     hist: CmRDT::History,
+    driverid: DriverID,
 }
 
 impl<T> CmRDT::Object for GraphObject<T> where T: Clone + Eq + hash::Hash + Serialize + DeserializeOwned + std::fmt::Debug {
@@ -100,11 +104,16 @@ impl<T> CmRDT::Object for GraphObject<T> where T: Clone + Eq + hash::Hash + Seri
     type DiskFormat = Graph<T>;
     type Op = GraphOp<T>;
 
-    fn init() -> Self {
+    fn init(driverid: DriverID) -> Self {
         Self {
             state: CmRDT::State::from([(0, Self::StateFormat::new())]),
             hist: CmRDT::History::new(),
+            driverid,
         }
+    }
+
+    fn get_driverid(&self) -> DriverID {
+        return self.driverid;
     }
 
     fn query_internal(&self) -> &Self::StateFormat {
