@@ -1,4 +1,4 @@
-use crate::conflict_res::drivers::{CmRDT, directed_graph};
+use crate::conflict_res::drivers::{directed_graph, file_tree::DriverID, CmRDT};
 use CmRDT::Object;
 use directed_graph::{Graph, GraphObject, GraphOp};
 
@@ -8,8 +8,8 @@ use uuid::Uuid;
 
 #[test]
 fn directed_graph_test() -> () {
-    let mut obj1: GraphObject<u8> = GraphObject::init();
-    let mut obj2: GraphObject<u8> = GraphObject::init();
+    let mut obj1: GraphObject<u8> = GraphObject::init(DriverID::Driver(0));
+    let mut obj2: GraphObject<u8> = GraphObject::init(DriverID::Driver(1));
 
     let mut ops: Vec<GraphOp<u8>> = Vec::new();
 
