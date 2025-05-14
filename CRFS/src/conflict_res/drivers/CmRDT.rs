@@ -1,12 +1,15 @@
 // Provides Traits, types, etc. needed to implement a CmRDT-based driver.
 
 use crate::types::Hash;
-use crate::storage::{ObjectLocation, ObjectFile};
 use crate::storage;
+use crate::storage::object;
+
+use super::file_tree::DriverID;
 
 use std::collections::{HashMap, HashSet};
 
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{Serialize, Deserialize, de};
+use de::DeserializeOwned;
 use sha2::{Sha256, Digest};
 use uuid::Uuid;
 
@@ -21,8 +24,8 @@ const BUF_SIZE: usize = 1024;
 pub trait DiskType {
     fn new() -> Self;
 
-    fn read(loc: &ObjectLocation) -> Result<Box<Self>, std::io::Error>;
-    fn write(&self, loc: &ObjectLocation) -> Result<(), std::io::Error>;
+    fn read(config: &storage::Config, loc: &object::Location) -> Result<Box<Self>, std::io::Error>;
+    fn write(&self, config: &storage::Config, loc: &object::Location) -> Result<(), std::io::Error>;
 
     fn from_state(state: &Self::StateFormat) -> Self;
 
@@ -36,7 +39,11 @@ pub trait StateType {
 }
 
 // Operation Format
-pub trait Operation: Serialize + DeserializeOwned {
+
+/// Struct types implementing this trait should have at least one field which is guaranteed to make its signature unique.
+/// Enum types should aim to use unique variant names.
+/// This guarantees it cannot be deserialized into any other type.
+pub trait Operation: Serialize + DeserializeOwned + Clone {
     fn serialize_to_bytes(&self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         let json = serde_json::to_string(self)?;
         let bytes = json.as_bytes();
@@ -44,14 +51,23 @@ pub trait Operation: Serialize + DeserializeOwned {
         Ok(bytes.len())
     }
 
-    fn deserialize(data: &[u8]) -> Result<Self, std::io::Error> {
+    fn serialize_to_str(&self) -> std::io::Result<String> {
+        return Ok(serde_json::to_string(self)?);
+    }
+
+    #[deprecated]
+    fn deserialize(data: &[u8]) -> std::io::Result<Self> {
         let json = String::from_utf8_lossy(data);
+        Ok(serde_json::from_str(&json)?)
+    }
+
+    fn deserialize_from_str(json: String) -> std::io::Result<Self> {
         Ok(serde_json::from_str(&json)?)
     }
 
     fn get_hash(&self) -> Hash {
         let mut buf = [0u8; BUF_SIZE];
-        let res = self.serialize_to_bytes(&mut buf);
+        self.serialize_to_bytes(&mut buf).expect("Serialization error.");
 
         let mut hasher = Sha256::new();
         hasher.update(buf);
@@ -61,12 +77,14 @@ pub trait Operation: Serialize + DeserializeOwned {
     fn to_history(&self) -> HistoryItem {
         Some(self.get_hash())
     }
+
+    fn get_driverid(&self) -> super::file_tree::DriverID;
 }
 
 // History Format
 pub type HistoryItem = Option<Hash>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct History {
     data: Vec<HistoryItem>,
     pub k: K,
@@ -80,7 +98,9 @@ impl History {
     }
 
     pub fn add(&mut self, item: HistoryItem) -> K {
-        self.data.push(item); self.k += 1; self.k
+        self.data.push(item); self.k += 1;
+        assert_eq!(self.data.len(), self.k + 1);
+        return self.k;
     }
 
     pub fn contains(&self, hash: Hash) -> bool {
@@ -110,6 +130,10 @@ impl History {
             }
         )
     }
+
+    pub fn get_hashes(&self) -> HashSet<Hash> {
+        self.data.iter().filter(|x: &&Option<Hash>| x.is_some()).map(|x| x.unwrap()).collect()
+    }
 }
 
 
@@ -129,7 +153,9 @@ pub trait Object {
     type Op: Operation + Clone;  // Format of an operation
 
     // Create an object in state s^0, with empty history
-    fn init() -> Self;
+    fn init(driver_id: DriverID) -> Self;
+
+    fn get_driverid(&self) -> DriverID;
 
     // Get the current state (q)
     fn query_internal(&self) -> &Self::StateFormat;
