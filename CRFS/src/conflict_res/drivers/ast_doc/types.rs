@@ -61,7 +61,7 @@ pub enum Node<TagType, LeafType> {
 
 /// A tree-like document.
 /// Contains `items` - the container of every node in the document - and `root`, the ID of the root node.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Doc<TagType, LeafType> {
     pub items: Container<TagType, LeafType>,
     pub root: ID,

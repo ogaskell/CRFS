@@ -209,6 +209,14 @@ impl<T, C> Array<T, C> where C: Ord {
         return in_order;
     }
 
+    pub fn len(&self) -> usize {
+        return self.in_order().len();
+    }
+
+    pub fn len_undel(&self) -> usize {
+        return self.in_order_undel().len();
+    }
+
     pub fn get_index_id(&self, i: ID) -> Option<usize> {
         Some(self.in_order().iter().position(|i_| *i_ == i)?)
     }
@@ -288,7 +296,6 @@ impl<T, C> Array<T, C> where C: Ord {
         };
 
         if n_conflicting == 0 {
-            println!("Inserted {id_i}");
             return self.insert_simple(ins, Some(id_i));
         }
 
@@ -318,7 +325,6 @@ impl<T, C> Array<T, C> where C: Ord {
             Ref::Right => Ref::Right,
             Ref::Left => Ref::Item(self.in_order()[0]),
         };
-        println!("Inserted {id_i}");
         return self.insert_simple(new_ins, Some(id_i));
     }
 
