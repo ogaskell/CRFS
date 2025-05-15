@@ -6,6 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use trash;
 
 use super::{Config, OBJECTDIR};
 use crate::types::Hash;
@@ -117,4 +118,9 @@ pub fn write_op<T>(config: &Config, op: T) -> std::io::Result<Hash> where T: CmR
 
     write(config, &loc, op.serialize_to_str()?.as_bytes())?;
     return Ok(hash);
+}
+
+pub fn delete(config: &Config, loc: &Location) -> std::io::Result<()> {
+    let path = loc.get_path(config);
+    Ok(trash::delete(&path).expect("Error deleting file."))
 }
