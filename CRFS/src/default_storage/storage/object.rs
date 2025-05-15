@@ -49,6 +49,10 @@ impl Location {
             Self::Object(_) => None,
         }
     }
+
+    pub fn exists(&self, config: &Config) -> bool {
+        self.get_path(config).exists()
+    }
 }
 
 /// Returns `Ok(true)` if the directory existed, `Ok(false)` if we had to create it, `Err(_)` otherwise.
