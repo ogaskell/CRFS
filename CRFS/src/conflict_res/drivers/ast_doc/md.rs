@@ -577,7 +577,7 @@ impl Driver for MDDriver {
         while applied.len() < n_ops {
             'inner: for hash in ops.iter() {
                 // If op hasn't been applied yet
-                if !applied.contains(hash) {
+                if !applied.contains(hash) && !self.get_history().contains(**hash) {
                     // Attempt to fetch op
                     let op = match self.get_op(**hash) {
                         Ok(op) => op,
