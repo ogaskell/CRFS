@@ -193,14 +193,43 @@ impl<T, C> Array<T, C> where C: Ord {
     }
 
     pub fn in_order(&self) -> Vec<ID> {
+        self.verify();
+
         let mut next = self.head;
         let mut result = Vec::new();
         while let Some(n) = next {
-            // dbg!(n);
             next = self.items[&n].right.into();
             result.push(n);
         }
         return result;
+    }
+
+    /// Panics if the linked list is broken/malformed.
+    pub fn verify(&self) {
+        let mut next = self.head;
+        let mut visited = HashSet::new();
+
+        while let Some(n) = next {
+            if visited.contains(&n) {
+                panic!("yata::Array::verify - Cycle detected.")
+            }
+
+            let current = &self.items[&n];
+
+            if let Ref::Item(l) = current.left {
+                if self.items[&l].right != Ref::Item(n) {
+                    panic!("yata::Array::verify - Broken link found. n={}, self.left.right={:?}", n, self.items[&l].right);
+                }
+            }
+            if let Ref::Item(r) = current.right {
+                if self.items[&r].left != Ref::Item(n) {
+                    panic!("yata::Array::verify - Broken link found. n={}, self.right.left={:?}", n, self.items[&r].left);
+                }
+            }
+
+            next = self.items[&n].right.into();
+            visited.insert(n);
+        }
     }
 
     pub fn in_order_undel(&self) -> Vec<ID> {
@@ -251,6 +280,9 @@ impl<T, C> Array<T, C> where C: Ord {
         else if Ref::Right == ins.right {self.tail = Some(id);}
 
         self.items.insert(id, ins);
+
+        self.verify();
+
         return Some(id);
     }
 
@@ -439,14 +471,19 @@ impl<T, C> Array<T, C> where T: Copy, C: Ord + Copy {
 impl<T, C> Array<T, C> where T: Eq {
     /// NOTE that this method assumes there is no duplicate content!!
     pub fn rename_against(&mut self, other: &Self) {
+        // Map of (current/old ID) -> (new ID/ID in other)
         let mut renames = HashMap::new();
-        for (id, ins) in self.items.iter_mut() {
-            if let Some((new_id, _)) = other.items.iter().find(|(_, x)| x.content == ins.content) {
+
+        for (id, ins) in self.items.iter() {
+            if let Some((new_id, _)) = other.items.iter().find(
+                |(new_id, x)| x.content == ins.content && renames.values().all(|i| *i != **new_id)
+            ) {
                 renames.insert(*id, *new_id);
             }
         }
 
         for (old, new) in renames.iter() {
+            println!("Renamed {} to {}", old, new);
             let ins = self.items.remove(old).unwrap();
             self.items.insert(*new, ins);
         }
