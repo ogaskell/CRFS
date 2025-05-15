@@ -483,7 +483,6 @@ impl<T, C> Array<T, C> where T: Eq {
         }
 
         for (old, new) in renames.iter() {
-            println!("Renamed {} to {}", old, new);
             let ins = self.items.remove(old).unwrap();
             self.items.insert(*new, ins);
         }
