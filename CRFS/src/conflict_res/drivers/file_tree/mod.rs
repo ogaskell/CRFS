@@ -259,19 +259,14 @@ impl FileManager {
                 if !applied.contains(*hash) {
                     let op = match self.get_op(*hash) {
                         Ok(op) => op,
-                        Err(_) => {
-                            println!("couldn't decode op");
-                            continue 'inner;
-                        },
+                        Err(_) => continue 'inner,
                     };
 
                     if op.get_driverid() != DriverID::FileTree {
-                        println!("driverid != filetree");
                         continue 'inner;
                     }
 
                     self.apply_op(&op)?;
-                    println!("op applied!");
                     applied.insert(*hash);
                 }
             }
@@ -328,12 +323,11 @@ impl FileManager {
             FileOp::DelFile(id) => {
                 let file_info = new_state.get_mut(id).expect("No driver with given id.");
 
-                let path = file_info.get_path();
-                println!("deleting: {:?}", &path);
-                if path.exists() {
+                let path = file_info.get_path(); let loc = object::Location::Path(path.clone(), true);
+                if loc.exists(&self.config) {
                     // Delete file.
                     // std::fs::remove_file(path)?;
-                    object::delete(&self.config, &object::Location::Path(path.clone(), true))?;
+                    object::delete(&self.config, &loc)?;
                 }
 
                 file_info.deleted = true;
