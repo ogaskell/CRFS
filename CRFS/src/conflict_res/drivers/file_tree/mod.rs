@@ -309,11 +309,6 @@ impl FileManager {
                     deleted: false,
                 };
 
-                // Write out file contents
-                if !info.deleted && !info.get_path().exists() {
-                    self.drivers[&id].write_out()?;
-                }
-
                 new_state.insert(*id, info);
             },
             FileOp::MoveFile(id, ins, ins_id) => {let old_info = old_state.get(id).expect("No driver with given id.");
@@ -334,9 +329,11 @@ impl FileManager {
                 let file_info = new_state.get_mut(id).expect("No driver with given id.");
 
                 let path = file_info.get_path();
+                println!("deleting: {:?}", &path);
                 if path.exists() {
                     // Delete file.
-                    std::fs::remove_file(path)?;
+                    // std::fs::remove_file(path)?;
+                    object::delete(&self.config, &object::Location::Path(path.clone(), true))?;
                 }
 
                 file_info.deleted = true;
@@ -410,12 +407,13 @@ impl FileManager {
 
         applied_ops = applied_ops.union(&self.apply(hashes)?).cloned().collect();
 
-        dbg!(&applied_ops);
-
         for id in self.get_active_drivers() {
+            let driver = self.drivers.get_mut(&id).unwrap();
             applied_ops = applied_ops.union(
-                &self.drivers.get_mut(&id).unwrap().apply(hashes)?
+                &driver.apply(hashes)?
             ).cloned().collect();
+
+            driver.write_out()?;
         }
 
         let n_unapplied = hashes.len() - applied_ops.len();
