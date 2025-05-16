@@ -1,6 +1,6 @@
 // Provides Traits, types, etc. needed to implement a CmRDT-based driver.
 
-use crate::types::Hash;
+use crate::types::{Hash, calculate_hash};
 use crate::storage;
 use crate::storage::object;
 
@@ -57,11 +57,9 @@ pub trait Operation: Serialize + DeserializeOwned + Clone {
     }
 
     fn get_hash(&self) -> Hash {
-        let buf = self.serialize_to_str().expect("Serialization error.");
+        let str = self.serialize_to_str().expect("Serialization error.");
 
-        let mut hasher = Sha256::new();
-        hasher.update(buf.as_bytes());
-        return hasher.finalize();
+        return calculate_hash(&str);
     }
 
     fn to_history(&self) -> HistoryItem {
