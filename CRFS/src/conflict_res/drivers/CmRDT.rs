@@ -17,8 +17,6 @@ use uuid::Uuid;
 // Used as a key for state history and causal history
 pub type K = usize;
 
-const BUF_SIZE: usize = 1024;
-
 // == Data Formats ==
 // On Disk Format
 pub trait DiskType {
@@ -44,13 +42,6 @@ pub trait StateType {
 /// Enum types should aim to use unique variant names.
 /// This guarantees it cannot be deserialized into any other type.
 pub trait Operation: Serialize + DeserializeOwned + Clone {
-    fn serialize_to_bytes(&self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
-        let json = serde_json::to_string(self)?;
-        let bytes = json.as_bytes();
-        buf[0..bytes.len()].clone_from_slice(bytes);
-        Ok(bytes.len())
-    }
-
     fn serialize_to_str(&self) -> std::io::Result<String> {
         return Ok(serde_json::to_string(self)?);
     }
@@ -66,11 +57,10 @@ pub trait Operation: Serialize + DeserializeOwned + Clone {
     }
 
     fn get_hash(&self) -> Hash {
-        let mut buf = [0u8; BUF_SIZE];
-        self.serialize_to_bytes(&mut buf).expect("Serialization error.");
+        let buf = self.serialize_to_str().expect("Serialization error.");
 
         let mut hasher = Sha256::new();
-        hasher.update(buf);
+        hasher.update(buf.as_bytes());
         return hasher.finalize();
     }
 
