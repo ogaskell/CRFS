@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use trash;
 
 use super::{Config, OBJECTDIR};
-use crate::types::Hash;
+use crate::types::{Hash, hash_to_str};
 use crate::conflict_res::drivers::CmRDT;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -22,7 +22,7 @@ impl Location {
     pub fn get_path(&self, config: &Config) -> PathBuf {
         match self {
             Self::Object(h) => {
-                let hex = format!("{:x}", h);
+                let hex = hash_to_str(h);
 
                 let mut result = PathBuf::new();
                 result.push(&config.working_dir);
