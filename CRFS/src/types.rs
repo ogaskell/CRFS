@@ -11,7 +11,7 @@ pub fn hash_to_str(h: &Hash) -> String {
     return format!("{:x}", h);
 }
 
-pub fn calculate_hash(str: &String) -> Hash {
+pub fn calculate_hash(str: &str) -> Hash {
     let mut hasher = Sha256::new();
     hasher.update(str.as_bytes());
     return hasher.finalize();
