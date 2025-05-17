@@ -177,7 +177,7 @@ impl Message {
         let endpoint = config.get_endpoint("api").expect("Server hostname not configured.");
 
         let (status, res_body) = post(endpoint, json)?;
-        println!("{}", &res_body);
+        // println!("{}", &res_body);
         let reply = serde_json::from_str(&res_body)?;
 
         return Ok((status, reply));
