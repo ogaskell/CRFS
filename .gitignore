@@ -209,3 +209,6 @@ cython_debug/
 
 # Testing Directories
 .testfiles/
+
+# Operation storage
+CRFS_Server/operations/
