@@ -1,10 +1,9 @@
 use crate::storage;
 use crate::types::Hash;
 
-use std::fs::{create_dir, remove_file, remove_dir};
+use std::fs::remove_file;
 use std::path::PathBuf;
 
-use generic_array::GenericArray;
 use hex_literal::hex;
 use serde::{Serialize, Deserialize};
 use sha2::{Digest, Sha256};

@@ -10,7 +10,6 @@ use std::collections::{HashMap, HashSet};
 
 use serde::{Serialize, Deserialize, de};
 use de::DeserializeOwned;
-use sha2::{Sha256, Digest};
 use uuid::Uuid;
 
 // k in the CmRDT paper

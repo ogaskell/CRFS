@@ -1,11 +1,10 @@
 // Directed Graph CmRDT, adapted from https://pages.lip6.fr/Marc.Shapiro/papers/RR-7687.pdf#page=15
 
 use crate::storage;
-// use crate::storage::{ObjectFile, ObjectLocation};
 use storage::object;
 
 use super::file_tree::DriverID;
-use super::CmRDT::{self, StateType, DiskType, Operation};
+use super::CmRDT::{self, StateType};
 
 use std::collections::HashSet;
 use std::hash;
@@ -16,8 +15,6 @@ use serde_json;
 use uuid::Uuid;
 
 type Tag = u64;
-
-const BUF_SIZE: usize = 1024;
 
 fn unique() -> Tag {
     rand::rng().random()

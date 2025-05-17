@@ -79,10 +79,6 @@ impl GlobalConfig {
         Some(self.replicas[self.replicas.iter().position(|x| x.0.working_dir == dir)?].clone())
     }
 
-    pub fn replica_index_by_dir(&self, dir: PathBuf) -> Option<usize> {
-        self.replicas.iter().position(|x| x.0.working_dir == dir)
-    }
-
     pub fn empty() -> Self {
         Self {
             replicas: Vec::new(),

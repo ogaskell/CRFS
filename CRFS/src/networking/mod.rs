@@ -41,10 +41,6 @@ impl UserInfo {
         Self { id: None, disp_name: None }
     }
 
-    pub fn clone(&self) -> Self {
-        return Self { id: self.id.clone(), disp_name: self.disp_name.clone() }
-    }
-
     pub fn get_user_id(&self) -> Option<Uuid> { self.id }
 }
 
@@ -54,10 +50,6 @@ pub struct FileSystemInfo {pub user: UserInfo, pub id: Option<Uuid>, pub disp_na
 impl FileSystemInfo {
     pub fn empty() -> Self {
         Self { id: None, disp_name: None, user: UserInfo::empty() }
-    }
-
-    pub fn clone(&self) -> Self {
-        return Self { user: self.user.clone(), id: self.id.clone(), disp_name: self.disp_name.clone() }
     }
 
     pub fn get_fs_id(&self) -> Option<Uuid> { self.id }
@@ -70,10 +62,6 @@ pub struct ReplicaInfo {pub fs: FileSystemInfo, pub id: Option<Uuid>, pub disp_n
 impl ReplicaInfo {
     pub fn empty() -> Self {
         Self { id: None, disp_name: None, fs: FileSystemInfo::empty() }
-    }
-
-    pub fn clone(&self) -> Self {
-        return Self { fs: self.fs.clone(), id: self.id.clone(), disp_name: self.disp_name.clone() }
     }
 
     pub fn get_replica_id(&self) -> Option<Uuid> { self.id }

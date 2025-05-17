@@ -1,4 +1,4 @@
-use crate::conflict_res::drivers::ast_doc::{types, crdt};
+use crate::conflict_res::drivers::ast_doc::types;
 
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;

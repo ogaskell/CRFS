@@ -4,10 +4,8 @@ use std::collections::HashSet;
 use crate::conflict_res::drivers::file_tree::DriverID;
 use crate::conflict_res::drivers::CmRDT::{DiskType, Object};
 use crate::conflict_res::drivers::ast_doc;
-use ast_doc::types::{Doc, Node, FileInterface, Children};
-use ast_doc::crdt::{DocObject, DocOp};
+use ast_doc::types::{Node, FileInterface, Children};
 use ast_doc::md;
-use markdown_ast::ast_to_markdown;
 
 use crate::storage;
 use storage::object;

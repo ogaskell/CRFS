@@ -1,14 +1,12 @@
 use std::{collections::HashSet, net::{Ipv4Addr, SocketAddr, SocketAddrV4}, path::PathBuf};
 
-use serde::{Deserialize, Serialize};
-use uuid::{uuid, Uuid};
+use uuid::uuid;
 
 use crate::{storage, networking, tests::storage_test::TESTFILEDIR, types};
 use networking::api;
 
 const TEST_USER: &'static str = "ad0ff637-87a8-4c64-a1a0-2ed08ec15e66";
 const TEST_FS: &'static str = "00000000-0000-0000-0000-000000000001"; // Will not be a "valid" FS!
-const TEST_REPLICA: &'static str = "00000000-0000-0000-0000-000000000001";
 
 #[test]
 fn ping_test() {
@@ -22,7 +20,7 @@ fn ping_test() {
     );
 
     let (code, res) = message.send(&config).unwrap();
-    let payload = res.unwrap(&message);
+    res.unwrap(&message);
 
     assert_eq!(code, 200);
 }

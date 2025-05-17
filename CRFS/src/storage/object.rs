@@ -1,6 +1,6 @@
 use std::{
     fs::{create_dir_all, File},
-    io::{Error, ErrorKind, Read, Write},
+    io::{Read, Write},
     path::PathBuf,
 };
 
