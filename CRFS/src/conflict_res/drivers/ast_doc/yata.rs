@@ -37,50 +37,10 @@ pub struct Insertion<T, C> {
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct IndexedInsertion<T, C> {
-    origin: Ref,
-    left: Ref,
-    right: Ref,
-    content: T,
-    creator: C,
-    deleted: bool,
-    index: usize,
-}
-
-impl<T, C> IndexedInsertion<T, C> where T: Copy, C: Copy {
-    fn from_insertion(ins: &Insertion<T, C>, i: usize) -> Self {
-        Self {
-            origin: ins.origin,
-            left: ins.left,
-            right: ins.right,
-            content: ins.content,
-            creator: ins.creator,
-            deleted: ins.deleted,
-            index: i,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum Op<T, C> {
     Insertion(ID, Insertion<T, C>),
     Deletion(ID),
 }
-
-impl<T, C> Into<Insertion<T, C>> for IndexedInsertion<T, C> {
-    fn into(self) -> Insertion<T, C> {
-        Insertion {
-            origin: self.origin,
-            left: self.left,
-            right: self.right,
-            content: self.content,
-            creator: self.creator,
-            deleted: self.deleted,
-        }
-    }
-}
-
-// type Container<T, C> = HashMap<ID, Insertion<T, C>>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Array<T, C> {
@@ -369,12 +329,6 @@ impl<T, C> Array<T, C> where C: Ord {
 }
 
 impl<T, C> Array<T, C> where T: Copy, C: Ord + Copy {
-    pub fn get(&self, i: ID) -> IndexedInsertion<T, C> {
-        let ins = self[i];
-        let index = self.get_index_id(i).unwrap();
-        return IndexedInsertion::from_insertion(&ins, index);
-    }
-
     pub fn in_order_content(&self) -> Vec<T> {
         let in_order = self.in_order();
         return in_order.iter().map(|id| self.items[id].content).collect();
@@ -389,54 +343,6 @@ impl<T, C> Array<T, C> where T: Copy, C: Ord + Copy {
         let (id, ins) = self.get_insertion(ind, item, creator);
         return (ins, self.insert(ins, Some(id)));
     }
-
-    // #[allow(non_snake_case)]
-    // pub fn get_op(&self, other: &Self, creator: C) -> Option<Op<T, C>> {
-    //     let (A, B) = (self.in_order(), other.in_order());
-
-    //     dbg!(&A, &B);
-
-    //     let (Ak, Bk): (HashSet<_>, HashSet<_>) =
-    //         (self.items.keys().collect(), other.items.keys().collect());
-
-    //     for a in A.iter() {
-    //         if !Bk.contains(a) {
-    //             return Some(Op::Deletion( *a ));
-    //         }
-    //     }
-
-    //     if A.len() == 0 {
-    //         return Some( Op::Insertion( B[0], Insertion {
-    //             origin: Ref::Left,
-    //             left: Ref::Left,
-    //             right: Ref::Right,
-    //             content: other[B[0]].content,
-    //             creator,
-    //             deleted: false,
-    //         }
-
-    //         ))
-    //     }
-
-    //     for (a, b) in std::iter::zip(A, B) {
-    //         if other.get_index_id(a) > self.get_index_id(a) {
-    //             return Some( Op::Insertion( b, Insertion {
-    //                 origin: self[a].left,
-    //                 left: self[a].left,
-    //                 right: Ref::Item(a),
-    //                 content: other[b].content,
-    //                 deleted: false,
-    //                 creator,
-    //             }))
-    //         }
-    //         if self.get_index_id(b) > other.get_index_id(b) {
-    //             // a is not in B
-    //             return Some(Op::Deletion( a ));
-    //         }
-    //     }
-
-    //     return None;
-    // }
 
     pub fn get_op(&self, other: &Self, creator: C) -> Option<Op<T, C>> {
         let (a, b) = (self.in_order_undel(), other.in_order_undel());
