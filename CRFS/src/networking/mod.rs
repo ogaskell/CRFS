@@ -276,7 +276,7 @@ impl Config {
             .join(&format!("{}/", &fs_uuid)).unwrap()
             .join(&types::hash_to_str(op)).unwrap();
 
-        dbg!(&full_url, &fs_uuid);
+        // dbg!(&full_url, &fs_uuid);
 
         let loc = storage::object::Location::Object(op.clone());
         let mut buf = String::new(); storage::object::read_string(storage, &loc, &mut buf)?;

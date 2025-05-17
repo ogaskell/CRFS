@@ -425,7 +425,7 @@ impl<T, C> Array<T, C> where T: Eq + Clone + Copy + std::fmt::Debug, C: Ord + Cl
         let mut ops = Vec::new();
         other.rename_against(self);
 
-        dbg!(&a, &other);
+        // dbg!(&a, &other);
 
         while let Some(op) = a.get_op(&other, creator) {
             ops.push(op);
@@ -439,7 +439,7 @@ impl<T, C> Array<T, C> where T: Eq + Clone + Copy + std::fmt::Debug, C: Ord + Cl
                     if let Ref::Item(r) = to_insert.right {
                         let mut right: ID = r;
 
-                        dbg!(right);
+                        // dbg!(right);
 
                         while !other.items.contains_key(&right) {
                             if let Ref::Item(r) = a[right].right {
