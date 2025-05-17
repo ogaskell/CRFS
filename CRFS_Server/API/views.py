@@ -1,5 +1,8 @@
 import json
+from pathlib import Path
+from uuid import UUID
 
+from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -68,3 +71,38 @@ class JSONMessageView(GenericJSONView):
 
         code, response_data = HANDLERS[type].handle_message(request_data, http_method)
         return (code, response_data)
+
+
+@csrf_exempt
+def operation(request: HttpRequest, fs: UUID, hash: str) -> HttpResponse:
+    """Handle /operation/*."""
+    ops_dir: Path = settings.BASE_DIR / "operations"
+    fs_dir = ops_dir / str(fs)
+
+    fs_dir.mkdir(parents=True, exist_ok=True)
+
+    print(fs_dir.exists())
+
+    filename = fs_dir / hash
+
+    if request.method == "GET":
+        print("GET")
+        try:
+            with open(filename) as f:
+                content = f.read()
+
+            return HttpResponse(status=200, content=content)
+        except FileNotFoundError:
+            return HttpResponse(status=404)
+    elif request.method == "PUT":
+        print("PUT")
+        try:
+            with open(filename, "w") as f:
+                f.write(request.body.decode())
+
+            return HttpResponse(status=200)
+        except Exception as e:
+            print(e)
+            return HttpResponse(status=500, content=e)
+    else:
+        return HttpResponse(status=405)
