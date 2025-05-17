@@ -104,7 +104,7 @@ pub struct SystemHistory {
 }
 
 impl SystemHistory {
-    fn all_hashes(&self) -> HashSet<types::Hash> {
+    pub fn all_hashes(&self) -> HashSet<types::Hash> {
         let mut hashes: Vec<HashSet<types::Hash>> = self.drivers.iter().map(|(_, h)| h.get_hashes()).collect();
         hashes.push(self.tree.get_hashes());
 
@@ -383,20 +383,20 @@ impl FileManager {
         Ok(())
     }
 
-    fn update(&mut self) -> Result<(), errors::Error> {
+    pub fn update(&mut self) -> Result<(), errors::Error> {
         self.update_self()?;
         self.update_drivers()?;
         Ok(())
     }
 
-    fn get_history(&self) -> SystemHistory {
+    pub fn get_history(&self) -> SystemHistory {
         return SystemHistory {
             tree: self.hist.clone(),
             drivers: self.drivers.iter().map(|(id, driver)| (*id, driver.get_history())).collect(),
         }
     }
 
-    fn apply_ops(&mut self, hashes: &Vec<&types::Hash>) -> std::io::Result<()> {
+    pub fn apply_ops(&mut self, hashes: &Vec<&types::Hash>) -> std::io::Result<()> {
         let mut applied_ops: HashSet<&types::Hash> = HashSet::new();
 
         applied_ops = applied_ops.union(&self.apply(hashes)?).cloned().collect();
