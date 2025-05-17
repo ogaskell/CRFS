@@ -6,7 +6,7 @@ use std::{
     path::PathBuf,
 };
 
-use serde::{Serialize, Deserialize, de::DeserializeOwned};
+use serde::{Serialize, de::DeserializeOwned};
 
 fn get_root(config: &Config) -> PathBuf {
     let mut path = PathBuf::new();

@@ -204,7 +204,7 @@ impl FileManager {
 
         // Match unmoved files.
         while let Some(f) = disk_files.pop() {
-            if let Some((id, ..)) = old_state.iter().find(|(id, info)| info.get_path() == &f && !info.deleted) {
+            if let Some((id, ..)) = old_state.iter().find(|(_, info)| info.get_path() == &f && !info.deleted) {
                 drivers.retain(|d| d != id);
             } else {
                 missing.push(f);
@@ -242,8 +242,9 @@ impl FileManager {
 
     /// If a driver exists in the current state that has content similar to the contents of the file at `path`,
     /// return its id.
-    fn rename_detection(&self, path: &PathBuf) -> Option<DriverID> {
+    fn rename_detection(&self, _path: &PathBuf) -> Option<DriverID> {
         None
+        // TODO - not yet implemented.
     }
 
     fn apply<'a>(&mut self, ops: &Vec<&'a types::Hash>) -> std::io::Result<HashSet<&'a types::Hash>> {

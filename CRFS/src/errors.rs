@@ -23,7 +23,7 @@ impl From<std::io::Error> for Error {
 }
 
 impl From<()> for Error {
-    fn from(e: ()) -> Self {
+    fn from(_: ()) -> Self {
         Self(CODE_ERROR, String::from("Unknown error."))
     }
 }

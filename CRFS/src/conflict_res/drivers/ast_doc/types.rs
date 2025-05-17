@@ -139,9 +139,9 @@ impl<TagType, LeafType> Node<TagType, LeafType> where TagType: Clone + TagLike +
     pub fn eq_content(&self, other: &Self) -> bool {
         match (self, other) {
             (
-                Self::Parent {id: _, tag: t1, children: c1},
-                Self::Parent {id: _, tag: t2, children: c2}
-            ) => (t1 == t2), // && (c1.eq_content(c2)),
+                Self::Parent {id: _, tag: t1, children: _c1},
+                Self::Parent {id: _, tag: t2, children: _c2}
+            ) => t1 == t2, // && (c1.eq_content(c2)),
             (
                 Self::Leaf {id: _, content: c1},
                 Self::Leaf {id: _, content: c2}

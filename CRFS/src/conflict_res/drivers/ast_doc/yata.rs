@@ -278,7 +278,6 @@ impl<T, C> Array<T, C> where C: Ord {
     /// Returns None if there is an error with the references in `ins`
     /// Else returns the new ID of `ins` in the list.
     pub fn insert(&mut self, ins: Insertion<T, C>, id_: Option<ID>) -> Option<ID> {
-        let in_order = self.in_order();
         let (l, r) = (self.get_index_ref(ins.left)?, self.get_index_ref(ins.right)?);
         let n_conflicting = r - l - 1;
 
