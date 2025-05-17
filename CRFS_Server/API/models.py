@@ -49,3 +49,13 @@ class Replica(models.Model):
     uuid: models.Field = models.UUIDField(primary_key=True, editable=False)
     filesystem: models.Field = models.ForeignKey(FileSystem, on_delete=models.CASCADE, null=False, blank=False)
     last_seen: models.Field = models.DateTimeField()
+
+
+class Operation(models.Model):
+    """A single operation in a FS's history.
+
+    Will always refer to a file existing at BASE_DIR/operations/<fs>/<hash>
+    """
+
+    filesystem: models.Field = models.ForeignKey(FileSystem, on_delete=models.CASCADE, null=False, blank=False)
+    hash: models.Field = models.CharField(max_length=64, null=False, blank=False, primary_key=True)
