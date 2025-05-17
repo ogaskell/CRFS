@@ -3,7 +3,7 @@ use std::{collections::HashSet, net::{Ipv4Addr, SocketAddr, SocketAddrV4}, path:
 use serde::{Deserialize, Serialize};
 use uuid::{uuid, Uuid};
 
-use crate::{default_storage::storage, networking, tests::storage_test::TESTFILEDIR, types};
+use crate::{storage, networking, tests::storage_test::TESTFILEDIR, types};
 use networking::api;
 
 const TEST_USER: &'static str = "ad0ff637-87a8-4c64-a1a0-2ed08ec15e66";

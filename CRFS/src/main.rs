@@ -1,4 +1,4 @@
-mod default_storage;
+mod storage;
 mod networking;
 mod conflict_res;
 mod core;
@@ -8,8 +8,6 @@ mod types;
 
 #[cfg(test)]
 mod tests;
-
-use default_storage::storage;
 
 use std::path::PathBuf;
 
