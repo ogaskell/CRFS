@@ -29,12 +29,12 @@ class FileSystem(models.Model):
 
     def __str__(self) -> str:
         if self.user.display_name:
-            owner = "Unnamed User"
-        else:
             owner = self.user.display_name
+        else:
+            owner = "Unnamed User"
 
         if self.display_name:
-            return f"FS {self.display_name}, of {owner}"
+            return f"FS '{self.display_name}', of '{owner}'"
         else:
             return f"Unnamed FS, of {owner}"
 
