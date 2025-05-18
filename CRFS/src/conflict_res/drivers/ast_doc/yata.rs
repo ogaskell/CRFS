@@ -345,7 +345,7 @@ impl<T, C> Array<T, C> where T: Copy, C: Ord + Copy {
 
     pub fn get_op(&self, other: &Self, creator: C) -> Option<Op<T, C>> {
         let (a, b) = (self.in_order_undel(), other.in_order_undel());
-        let lcs = crate::helpers::lcs(a.as_slice(), b.as_slice());
+        let lcs = get_lcs(a.as_slice(), b.as_slice());
 
         for a_item in a.iter() {
             if !lcs.contains(&a_item) {return Some(Op::Deletion(*a_item))}
@@ -474,4 +474,18 @@ impl<T, C> Array<T, C> where T: Eq + Clone + Copy + std::fmt::Debug, C: Ord + Cl
             self.in_order_content_undel().iter(), other.in_order_content_undel().iter()
         ).all(|(a, b)| a == b);
     }
+}
+
+fn get_lcs<T>(x: &[T], y: &[T]) -> Vec<T> where T: Eq + Clone {
+    if x.len() == 0 || y.len() == 0 {return Vec::new();}
+    if x[x.len() - 1] == y[y.len() - 1] {
+        let mut result = Vec::from(get_lcs(&x[0..x.len() - 1], &y[0..y.len() - 1]));
+        result.push(x[x.len() - 1].clone());
+        return result;
+    }
+
+    let a = get_lcs(&x[0..x.len()], &y[0..y.len() - 1]);
+    let b = get_lcs(&x[0..x.len() - 1], &y[0..y.len()]);
+
+    if a.len() > b.len() {return a;} else {return b;}
 }
