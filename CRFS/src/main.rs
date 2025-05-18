@@ -54,6 +54,13 @@ enum Commands {
     /// Synchronise a replica with the server.
     Sync {
         /// Replica directory. Defaults to the current directory.
+        #[arg(short)]
+        dir: Option<PathBuf>
+    },
+    /// Write out all drivers, to ensure files are of "canonical" form.
+    Canonize {
+        /// Replica directory. Defaults to the current directory.
+        #[arg(short)]
         dir: Option<PathBuf>
     }
 }
@@ -75,6 +82,7 @@ fn main() {
             core::setup(&mut conf, &conf_path, server, user_id, fs_id, user_name, fs_name, dir);
         },
         Commands::Sync {dir} => core::sync(conf, dir),
+        Commands::Canonize {dir} => core::canonize(conf, dir),
         _ => {panic!();}
     }
 }

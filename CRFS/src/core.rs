@@ -2,6 +2,7 @@ use crate::{storage, networking, conflict_res, errors, types};
 
 use conflict_res::drivers::file_tree;
 
+use std::fs;
 use std::path::PathBuf;
 use std::collections::HashSet;
 
@@ -58,6 +59,18 @@ impl SystemConfig {
 
         return Ok(new_hashes);
     }
+
+    pub fn canonize(&self) -> errors::Result<()> {
+        let mut tree = file_tree::FileManager::read_or_init(&self.0, self.get_replica_id().unwrap())?;
+
+        println!("-> File Tree loaded. Checking for local updates...");
+
+        tree.update()?;
+
+        println!("-> Internal state up-to-date. Writing out canonical forms...");
+
+        Ok(tree.canonize()?)
+    }
 }
 
 
@@ -76,7 +89,8 @@ impl GlobalConfig {
     }
 
     pub fn find_replica_by_dir(&self, dir: PathBuf) -> Option<SystemConfig> {
-        Some(self.replicas[self.replicas.iter().position(|x| x.0.working_dir == dir)?].clone())
+        let dir_abs = fs::canonicalize(dir).expect("Error finding absolute path of dir.");
+        Some(self.replicas[self.replicas.iter().position(|x| x.0.working_dir == dir_abs)?].clone())
     }
 
     pub fn empty() -> Self {
@@ -109,6 +123,8 @@ pub fn setup(conf: &mut GlobalConfig, conf_path: &PathBuf, server: &std::net::So
         Some(d) => d.clone(),
         None => std::env::current_dir().expect("Error opening working directory. Move to a different directory, or specify a working directory."),
     };
+
+    let working_dir = fs::canonicalize(working_dir).expect("Error getting absolute path of working dir.");
 
     let mut system_config = SystemConfig(
         storage::Config {working_dir}, networking::Config {
@@ -160,4 +176,17 @@ pub fn sync(conf: GlobalConfig, dir_: &Option<PathBuf>) {
     system_config.sync().expect("Sync error.");
 
     println!("Sync OK!");
+}
+
+pub fn canonize(conf: GlobalConfig, dir_: &Option<PathBuf>) {
+    let dir = match dir_ {
+        Some(d) => d.clone(),
+        None => std::env::current_dir().expect("Error opening working directory. Move to a different directory, or specify a working directory."),
+    };
+
+    let system_config = conf.find_replica_by_dir(dir).expect("Replica not found. Please run the setup command first.");
+
+    system_config.canonize().expect("Canonize error.");
+
+    println!("Wrote out canonical forms.");
 }

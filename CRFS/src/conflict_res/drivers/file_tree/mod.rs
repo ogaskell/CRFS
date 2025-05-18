@@ -417,4 +417,14 @@ impl FileManager {
 
         Ok(())
     }
+
+    pub fn canonize(&mut self) -> std::io::Result<()> {
+        for id in self.get_active_drivers() {
+            self.drivers.get_mut(&id).unwrap().write_out()?;
+        }
+
+        self.write_out()?;
+
+        Ok(())
+    }
 }
