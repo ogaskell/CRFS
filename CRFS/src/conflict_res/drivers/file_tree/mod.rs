@@ -113,15 +113,6 @@ impl SystemHistory {
             None => HashSet::new(),
         };
     }
-
-    /// Return `Some(id)` if `hash` belongs to driver `id`, or `None` if `hash` belongs to the file tree CRDT.
-    fn get_driver(&self, hash: &types::Hash) -> Option<DriverID> {
-        if self.tree.contains(hash.clone()) {return None}
-        for (id, h) in self.drivers.iter() {
-            if h.contains(hash.clone()) {return Some(*id)}
-        }
-        panic!();
-    }
 }
 
 // File Manager

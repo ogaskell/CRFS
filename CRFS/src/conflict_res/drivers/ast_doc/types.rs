@@ -19,15 +19,6 @@ pub fn unique() -> ID {
     rand::rng().random()
 }
 
-/// Generate an ID in the range `(lower, upper)`.
-/// This function is deterministic, unlike unique.
-/// Given there will be `n` items between `lower, upper`, get an ID for the `i`th.
-pub fn between(lower: ID, upper: ID, n: u128, i: u128) -> ID {
-    let space = upper - lower;
-    let delta = space / (n + 1);
-    return lower + ((i + 1) * delta);
-}
-
 /// Container type for holding the set of Nodes in a document.
 pub type Container<TagType, LeafType> = HashMap<ID, Node<TagType, LeafType>>;
 
@@ -104,13 +95,6 @@ impl<TagType, LeafType> Node<TagType, LeafType> where TagType: Clone + TagLike +
         match self {
             Self::Leaf {id, content: _} => {*id = w},
             Self::Parent {id, tag: _, children: _} => {*id = w},
-        }
-    }
-
-    pub fn unwrap_parent(&self) -> (ID, &TagType, Vec<ID>) {
-        match self {
-            Self::Parent{id, tag, children} => (*id, tag, children.in_order_content_undel()),
-            Self::Leaf{..} => panic!(),
         }
     }
 
