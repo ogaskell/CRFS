@@ -143,7 +143,6 @@ def register_filesystem_handler(message_type: str, payload: dict, http_method: s
 
     if "fs_opts" in payload.keys():
         fs_opts_raw = payload["fs_opts"]
-        print("opts", fs_opts_raw)
         if not isinstance(fs_opts_raw, list):
             return (400, {"code": 8, "err_msg": "Field \"fs_opts\" must be a list."})
 
@@ -248,8 +247,6 @@ def fetch_state_handler(message_type: str, payload: dict, http_method: str) -> t
         Operation.objects.filter(filesystem=fs)
     ))
 
-    print(ops)
-
     return (200, {"code": 0, "state": ops})
 
 
@@ -284,7 +281,6 @@ def push_state_handler(message_type: str, payload: dict, http_method: str) -> tu
         }
 
     for op in ops:
-        print(list_to_hash(op), type(op))
         new_op = Operation(
             filesystem=fs,
             hash=list_to_hash(op),

@@ -81,12 +81,9 @@ def operation(request: HttpRequest, fs: UUID, hash: str) -> HttpResponse:
 
     fs_dir.mkdir(parents=True, exist_ok=True)
 
-    print(fs_dir.exists())
-
     filename = fs_dir / hash
 
     if request.method == "GET":
-        print("GET")
         try:
             with open(filename) as f:
                 content = f.read()
@@ -95,7 +92,6 @@ def operation(request: HttpRequest, fs: UUID, hash: str) -> HttpResponse:
         except FileNotFoundError:
             return HttpResponse(status=404)
     elif request.method == "PUT":
-        print("PUT")
         try:
             with open(filename, "w") as f:
                 f.write(request.body.decode())
