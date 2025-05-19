@@ -212,3 +212,6 @@ cython_debug/
 
 # Operation storage
 CRFS_Server/operations/
+
+# Evaluation outputs
+Eval/outputs/
