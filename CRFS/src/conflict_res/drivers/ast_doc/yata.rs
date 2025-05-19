@@ -381,7 +381,7 @@ impl<T, C> Array<T, C> where T: Eq {
 
         for (id, ins) in self.items.iter() {
             if let Some((new_id, _)) = other.items.iter().find(
-                |(new_id, x)| x.content == ins.content && renames.values().all(|i| *i != **new_id)
+                |(new_id, x)| x.content == ins.content && renames.values().all(|i| *i != **new_id) && !x.deleted
             ) {
                 renames.insert(*id, *new_id);
             }
@@ -473,6 +473,19 @@ impl<T, C> Array<T, C> where T: Eq + Clone + Copy + std::fmt::Debug, C: Ord + Cl
         return std::iter::zip(
             self.in_order_content_undel().iter(), other.in_order_content_undel().iter()
         ).all(|(a, b)| a == b);
+    }
+
+    pub fn subset_of(&self, other: &Self) -> bool {
+        let my_content = self.in_order_content_undel();
+        let other_content = other.in_order_content_undel();
+
+        // dbg!(&my_content, &other_content);
+
+        let res = my_content.iter().all(|a| other_content.contains(a));
+
+        // dbg!(res);
+
+        return res;
     }
 }
 
