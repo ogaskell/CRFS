@@ -33,7 +33,20 @@ impl SystemConfig {
 
         println!("-> Internal state up-to-date. Syncing with server...");
 
-        let remote_hashes = self.network_sync(&tree)?;
+        let remote_hashes = match self.network_sync(&tree) {
+            Ok(h) => h,
+            Err(errors::Error(code, _)) if (code == errors::CODE_NO_USER) || (code == errors::CODE_NO_FS) => {
+                let (u, f) = self.1.check_info()?;
+
+                if !u { self.1.register_user().expect("Error registering user."); }
+                if !f { self.1.register_fs().expect("Error registering fs."); }
+
+                let res = self.network_sync(&tree)?;
+                println!("Warn: Re-registered user and/or FS. Continuing sync...");
+                res
+            },
+            e => {e?; panic!()}
+        };
 
         if remote_hashes.len() > 0 {
             // println!("Applying {} ops...", remote_hashes.len());
