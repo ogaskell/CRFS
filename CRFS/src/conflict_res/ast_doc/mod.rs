@@ -1,4 +1,4 @@
-use crate::conflict_res::drivers::CmRDT;
+use crate::conflict_res::CmRDT;
 
 pub mod types;
 pub mod yata;

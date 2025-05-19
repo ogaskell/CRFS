@@ -1,4 +1,4 @@
-use crate::conflict_res::drivers::{directed_graph, file_tree::DriverID, CmRDT};
+use crate::conflict_res::{directed_graph, file_tree::DriverID, CmRDT};
 use CmRDT::Object;
 use directed_graph::{Graph, GraphObject, GraphOp};
 

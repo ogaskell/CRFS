@@ -10,7 +10,7 @@ use trash;
 
 use super::{Config, OBJECTDIR};
 use crate::types::{Hash, hash_to_str};
-use crate::conflict_res::drivers::CmRDT;
+use crate::conflict_res::CmRDT;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Location {

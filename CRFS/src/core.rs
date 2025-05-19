@@ -1,6 +1,6 @@
 use crate::{storage, networking, conflict_res, errors, types};
 
-use conflict_res::drivers::file_tree;
+use conflict_res::file_tree;
 
 use std::fs;
 use std::path::PathBuf;

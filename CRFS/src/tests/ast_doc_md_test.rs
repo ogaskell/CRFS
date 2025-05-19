@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 use std::collections::HashSet;
 
-use crate::conflict_res::drivers::file_tree::DriverID;
-use crate::conflict_res::drivers::CmRDT::{DiskType, Object};
-use crate::conflict_res::drivers::ast_doc;
+use crate::conflict_res::file_tree::DriverID;
+use crate::conflict_res::CmRDT::{DiskType, Object};
+use crate::conflict_res::ast_doc;
 use ast_doc::types::{Node, FileInterface, Children};
 use ast_doc::md;
 

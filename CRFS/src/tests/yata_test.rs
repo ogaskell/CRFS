@@ -1,4 +1,4 @@
-use crate::conflict_res::drivers::ast_doc::yata;
+use crate::conflict_res::ast_doc::yata;
 use std::collections::HashMap;
 
 #[test]
